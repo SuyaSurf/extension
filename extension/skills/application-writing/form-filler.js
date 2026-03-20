@@ -327,6 +327,36 @@ const FormFiller = (() => {
     return { filled: true, fileName: file.name, size: file.size, mimeType: file.type };
   }
 
+  async function fillRange(field, value) {
+    const el = field.el;
+    if (!el || el.type !== 'range') return { filled: false, reason: 'Not a range input' };
+
+    // Convert value to number and clamp to min/max
+    let numValue = Number(value);
+    if (isNaN(numValue)) {
+      numValue = parseFloat(value);
+    }
+    if (isNaN(numValue)) {
+      return { filled: false, reason: 'Invalid numeric value for range' };
+    }
+
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 100;
+    const step = parseFloat(el.step) || 1;
+    
+    // Clamp to valid range and snap to step
+    numValue = Math.max(min, Math.min(max, numValue));
+    if (step !== 1) {
+      numValue = Math.round((numValue - min) / step) * step + min;
+    }
+
+    // Set the value
+    el.value = numValue.toString();
+    dispatchEvents(el, ['input', 'change']);
+    
+    return { filled: true, value: numValue, min, max, step };
+  }
+
   // ── Main fill dispatcher ──────────────────────────────────────────────────
   async function fill(field, value, options = {}) {
     if (!field || !field.el) return { filled: false, reason: 'No element' };

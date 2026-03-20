@@ -119,6 +119,79 @@
 .ring-3 { animation-delay: 1.5s; opacity: .3; }
 @keyframes listenPing { 0% { transform: scale(1); opacity: inherit; } 100% { transform: scale(2.8); opacity: 0; } }
 
+/* ── Blink animations for eyes ── */
+.suya-bot .eye-left,
+.suya-bot .eye-right {
+  animation: blinkAwake 4.2s ease-in-out infinite;
+}
+.suya-bot.mode-idle .eye-left,
+.suya-bot.mode-idle .eye-right {
+  animation: blinkIdle 5.8s ease-in-out infinite;
+}
+.suya-bot.mode-sleeping .eye-left,
+.suya-bot.mode-sleeping .eye-right {
+  animation: blinkSleep 8.4s ease-in-out infinite;
+}
+.suya-bot.mode-offline .eye-left,
+.suya-bot.mode-offline .eye-right {
+  animation: blinkOffline 12s ease-in-out infinite;
+}
+.suya-bot.mode-bored .eye-left,
+.suya-bot.mode-bored .eye-right {
+  animation: blinkBored 7.2s ease-in-out infinite;
+}
+.suya-bot.busy .eye-left,
+.suya-bot.busy .eye-right {
+  animation: blinkBusy 3.6s ease-in-out infinite;
+}
+.suya-bot.listening .eye-left,
+.suya-bot.listening .eye-right {
+  animation: blinkListen 4.8s ease-in-out infinite;
+}
+.suya-bot.shocked .eye-left,
+.suya-bot.shocked .eye-right {
+  animation: none;
+}
+.suya-bot.thinking-hard .eye-left,
+.suya-bot.thinking-hard .eye-right {
+  animation: blinkThink 3.2s ease-in-out infinite;
+}
+
+/* Blink keyframes - subtle and natural */
+@keyframes blinkAwake {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+@keyframes blinkIdle {
+  0%, 85%, 100% { transform: scaleY(1); }
+  89% { transform: scaleY(0.15); }
+}
+@keyframes blinkSleep {
+  0%, 70%, 100% { transform: scaleY(1); }
+  75% { transform: scaleY(0.08); }
+  85% { transform: scaleY(0.12); }
+}
+@keyframes blinkOffline {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.05); }
+}
+@keyframes blinkBored {
+  0%, 88%, 100% { transform: scaleY(1); }
+  92% { transform: scaleY(0.18); }
+}
+@keyframes blinkBusy {
+  0%, 93%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+@keyframes blinkListen {
+  0%, 87%, 100% { transform: scaleY(1); }
+  91% { transform: scaleY(0.14); }
+}
+@keyframes blinkThink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.08); }
+}
+
 /* ── Whoosh locomotion ── */
 .suya-bot.whoosh-out { animation: whooshOut var(--whoosh-dur) cubic-bezier(.4,0,.8,.2) forwards !important; }
 .suya-bot.whoosh-in  { animation: whooshIn calc(var(--whoosh-dur)*.85) cubic-bezier(.2,.8,.4,1.4) forwards !important; }

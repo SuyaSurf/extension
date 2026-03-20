@@ -153,6 +153,8 @@ function summarizeContext(context: PageContext): string {
 }
 
 const CharacterRuntime: React.FC = () => {
+  console.log('[Suya] CharacterRuntime component rendering');
+  
   const [mode, setMode] = React.useState<SuyaMode>('idle')
   const [message, setMessage] = React.useState('Suya is here when you need help deciding what to do on this page.')
   const [isBusy, setIsBusy] = React.useState(false)
@@ -537,12 +539,22 @@ function mountCharacterUI() {
   }
 
   console.log('[Suya] Mounting character UI...')
-  const rootElement = document.createElement('div')
-  rootElement.id = ROOT_ID
-  document.documentElement.appendChild(rootElement)
-
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(<CharacterRuntime />)
+  
+  try {
+    const rootElement = document.createElement('div')
+    rootElement.id = ROOT_ID
+    document.documentElement.appendChild(rootElement)
+    
+    console.log('[Suya] Root element created and appended:', rootElement)
+    
+    const root = ReactDOM.createRoot(rootElement)
+    console.log('[Suya] React root created, rendering CharacterRuntime...')
+    
+    root.render(<CharacterRuntime />)
+    console.log('[Suya] CharacterRuntime render initiated')
+  } catch (error) {
+    console.error('[Suya] Error mounting CharacterRuntime:', error)
+  }
 }
 
 if (document.readyState === 'loading') {

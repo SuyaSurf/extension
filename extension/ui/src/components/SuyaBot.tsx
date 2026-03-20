@@ -14,6 +14,14 @@ export type SuyaExpression =
 type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 interface Position { x: number; y: number; corner: Corner; }
 
+type BubblePlacement = 'top' | 'bottom' | 'left' | 'right';
+interface BubblePosition {
+  placement: BubblePlacement;
+  left: number;
+  top: number;
+  transform: string;
+}
+
 export interface SuyaBotProps {
   mode?:           SuyaMode;
   isActive?:       boolean;
@@ -474,6 +482,9 @@ function spawnLines(from: Position, to: Position) {
   }
 }
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+
 /* =====================================================
    SuyaBot — Main component
    ===================================================== */
@@ -497,8 +508,10 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   const [showMsg,   setShowMsg]= useState(false);
   const [hlBox,     setHlBox]  = useState<DOMRect | null>(null);
   const [whoosh,    setWhoosh] = useState<'idle' | 'out' | 'in'>('idle');
-  const botRef  = useRef<HTMLDivElement>(null);
-  const prevPos = useRef<Position | null>(null);
+  const [bubblePos, setBubblePos] = useState<BubblePosition | null>(null);
+  const botRef    = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const prevPos   = useRef<Position | null>(null);
 
   const findOptimal = useCallback((): Position => {
     const pad = 20, sw = window.innerWidth, sh = window.innerHeight;
@@ -559,9 +572,10 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
 
   useEffect(() => {
     if (!message) { setShowMsg(false); return; }
-    const t = setTimeout(() => setShowMsg(true), 700);
-    return () => clearTimeout(t);
+    // Show bubble immediately, no delay for initial message
+    setShowMsg(true);
   }, [message]);
+  
   useEffect(() => {
     if (!showMsg) return;
     const t = setTimeout(() => setShowMsg(false), 5800);
@@ -573,6 +587,140 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     const t = setTimeout(() => setHlBox(null), 4000);
     return () => clearTimeout(t);
   }, [highlightTarget]);
+
+
+  useEffect(() => {
+    if (!showMsg || !bubbleRef.current || !botRef.current) {
+      setBubblePos(null);
+      return;
+    }
+
+  const bubble = bubbleRef.current;
+  const bot = botRef.current;
+  
+  // Get accurate element dimensions using getBoundingClientRect
+  const bubbleRect = bubble.getBoundingClientRect();
+  const botRect = bot.getBoundingClientRect();
+  
+  const bubbleW = bubbleRect.width || 280;
+  const bubbleH = bubbleRect.height || 80;
+  const botW = botRect.width || 64;
+  const botH = botRect.height || 76;
+  
+  // Viewport dimensions
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  
+  // Scroll offsets (in case page is scrolled)
+  const scrollX = window.pageXOffset;
+  const scrollY = window.pageYOffset;
+  
+  // Bot position in viewport coordinates
+  const botLeft = botRect.left;
+  const botTop = botRect.top;
+  const botRight = botRect.right;
+  const botBottom = botRect.bottom;
+  const botCenterX = botLeft + botW / 2;
+  const botCenterY = botTop + botH / 2;
+  
+  // Modern positioning with clean viewport gaps
+  const VIEWPORT_MARGIN = 16; // Minimum distance from screen edges
+  const BUBBLE_GAP = 12; // Gap between bot and bubble
+  
+  // Calculate available space with modern viewport constraints
+  const spaceTop = botTop - VIEWPORT_MARGIN;
+  const spaceBottom = vh - botBottom - VIEWPORT_MARGIN;
+  const spaceLeft = botLeft - VIEWPORT_MARGIN;
+  const spaceRight = vw - botRight - VIEWPORT_MARGIN;
+  
+  // Determine bot's quadrant to avoid placing bubble in same direction
+  const isInTopHalf = botCenterY < vh / 2;
+  const isInLeftHalf = botCenterX < vw / 2;
+  
+  
+  // Determine preferred placement based on available space and bot position
+  const placements: BubblePlacement[] = [];
+  
+  // If bot is in bottom-right corner, strongly prefer left or top
+  if (!isInTopHalf && !isInLeftHalf) {
+    placements.push('left', 'top');
+  } else if (isInTopHalf && !isInLeftHalf) {
+    placements.push('left', 'bottom');
+  } else if (!isInTopHalf && isInLeftHalf) {
+    placements.push('right', 'top');
+  } else {
+    placements.push('right', 'bottom');
+  }
+  
+  // Add the other placements as fallbacks
+  placements.push('top', 'bottom', 'left', 'right');
+  
+  // Remove duplicates while preserving order
+  const uniquePlacements = [...new Set(placements)];
+  
+  const fits: Record<BubblePlacement, boolean> = {
+    top: spaceTop >= bubbleH + BUBBLE_GAP,
+    bottom: spaceBottom >= bubbleH + BUBBLE_GAP,
+    left: spaceLeft >= bubbleW + BUBBLE_GAP,
+    right: spaceRight >= bubbleW + BUBBLE_GAP,
+  };
+  
+  // Select placement that fits and goes away from bot's corner, or fallback
+  let placement: BubblePlacement = uniquePlacements.find(p => fits[p]) || 
+    uniquePlacements[0];
+  
+  // Calculate final position
+  let left = 0;
+  let top = 0;
+  let transform = '';
+  
+  switch (placement) {
+    case 'top': {
+      // Modern positioning above with viewport constraints
+      left = Math.max(VIEWPORT_MARGIN + bubbleW/2, 
+                Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
+      top = Math.max(VIEWPORT_MARGIN, botTop - BUBBLE_GAP);
+      transform = 'translate(-50%, -100%)';
+      break;
+    }
+    case 'bottom': {
+      // Modern positioning below with viewport constraints
+      left = Math.max(VIEWPORT_MARGIN + bubbleW/2, 
+                Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
+      top = Math.min(vh - VIEWPORT_MARGIN - bubbleH, botBottom + BUBBLE_GAP);
+      transform = 'translate(-50%, 0)';
+      break;
+    }
+    case 'left': {
+      // Modern positioning left with viewport constraints
+      left = Math.max(VIEWPORT_MARGIN, botLeft - bubbleW - BUBBLE_GAP);
+      top = Math.max(VIEWPORT_MARGIN + bubbleH/2, 
+               Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
+      transform = 'translate(0, -50%)';
+      break;
+    }
+    case 'right': {
+      // Modern positioning right with viewport constraints
+      left = Math.min(vw - VIEWPORT_MARGIN - bubbleW, botRight + BUBBLE_GAP);
+      top = Math.max(VIEWPORT_MARGIN + bubbleH/2, 
+               Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
+      transform = 'translate(0, -50%)';
+      break;
+    }
+  }
+  
+  // Convert viewport coordinates to page coordinates
+  const pageLeft = left + scrollX;
+  const pageTop = top + scrollY;
+  
+  
+  setBubblePos({ 
+    placement,
+    left: pageLeft,
+    top: pageTop,
+    transform
+  });
+}, [showMsg, pos.x, pos.y]);
 
   const handleClick = () => {
     if (mode === 'sleeping' || mode === 'offline') return;
@@ -596,6 +744,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
 
   return (
     <>
+      
       <div className={`suya-overlay ${isActive ? 'active' : ''}`} onClick={handleClick}>
         {hlBox && (
           <div className="suya-highlight-wrapper" style={{
@@ -609,12 +758,17 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
           </div>
         )}
         {showMsg && message && (
-          <div className="suya-bubble" style={{
-            position: 'absolute',
-            left: `${pos.x + 32}px`,
-            top: `${pos.y - 10}px`,
-            transform: 'translate(-50%, -100%)',
-          }}>
+          <div
+            ref={bubbleRef}
+            className="suya-bubble"
+            style={{
+              position: 'absolute',
+              left: bubblePos ? `${bubblePos.left}px` : `${pos.x + 32}px`,
+              top: bubblePos ? `${bubblePos.top}px` : `${pos.y - 10}px`,
+              transform: bubblePos?.transform ?? 'translate(-50%, -100%)',
+              visibility: 'visible', // Always visible for debugging
+            }}
+          >
             <div className="bubble-top-accent"/>
             <div className="bubble-icon" aria-hidden>🍢</div>
             <div className="bubble-content">{message}</div>
