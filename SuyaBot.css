@@ -1,0 +1,171 @@
+/* =====================================================
+   SUYA BOT — Face-first. No ball background.
+   ===================================================== */
+:root {
+  --suya-amber:  #FFAB40;
+  --suya-listen: #4AB8E8;
+  --whoosh-dur:  400ms;
+}
+
+.suya-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  pointer-events: none;
+  transition: background .4s ease, backdrop-filter .4s ease;
+}
+.suya-overlay.active {
+  pointer-events: auto;
+  background: rgba(14,5,1,.5);
+  backdrop-filter: blur(5px) saturate(.7);
+}
+
+/* Shell — transparent, no ball */
+.suya-bot {
+  background: transparent;
+  border-radius: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: fixed;
+  z-index: 9999;
+  overflow: visible;
+  filter: drop-shadow(0 4px 14px rgba(120,40,0,.28));
+  animation: suyaFloat 5s ease-in-out infinite;
+  transition: filter .25s ease;
+  transform-origin: center bottom;
+}
+.suya-bot:hover  { filter: drop-shadow(0 6px 22px rgba(160,60,0,.38)); }
+.suya-bot:focus-visible { outline: 3px solid var(--suya-amber); outline-offset: 6px; border-radius: 50%; }
+
+.suya-bot.mode-idle     { animation: suyaIdleDrift 7s ease-in-out infinite; }
+.suya-bot.mode-sleeping { animation: suyaSleepSway 6s ease-in-out infinite; }
+.suya-bot.mode-offline  { animation: none; filter: drop-shadow(0 2px 8px rgba(0,0,0,.2)) saturate(0); }
+.suya-bot.mode-bored    { animation: suyaIdleDrift 9s ease-in-out infinite; }
+.suya-bot.busy          { animation: suyaChomp .75s ease-in-out infinite; }
+.suya-bot.listening     { animation: suyaListenBreath 3.2s ease-in-out infinite; }
+.suya-bot.shocked       { animation: none; }
+.suya-bot.thinking-hard { animation: suyaThinkPulse 1.4s ease-in-out infinite; }
+
+/* ── Keyframes ── */
+@keyframes suyaFloat {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  30%     { transform: translateY(-8px) rotate(-1.8deg); }
+  65%     { transform: translateY(-4px) rotate(1.4deg); }
+}
+@keyframes suyaIdleDrift {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  50%     { transform: translateY(-3px) rotate(-.5deg); }
+}
+@keyframes suyaSleepSway {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  50%     { transform: translateY(3px) rotate(3.5deg); }
+}
+@keyframes suyaChomp {
+  0%,100% { transform: scale(1) rotate(0deg); }
+  25%     { transform: scale(1.07) rotate(-3.5deg); }
+  65%     { transform: scale(1.04) rotate(3deg); }
+}
+@keyframes suyaListenBreath {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.05); }
+}
+@keyframes suyaThinkPulse {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.04) rotate(1deg); }
+}
+
+/* ── Sleeping Zs ── */
+.z-particle { position: absolute; font-weight: 800; color: #7888B8; font-style: normal; pointer-events: none; }
+.z1 { font-size: 9px;  top: 0;     right: -2px; animation: zFloat 3s ease-out infinite 0s; }
+.z2 { font-size: 12px; top: -10px; right: 6px;  animation: zFloat 3s ease-out infinite 1s; }
+.z3 { font-size: 7px;  top: -2px;  right: 14px; animation: zFloat 3s ease-out infinite 2s; }
+@keyframes zFloat {
+  0%   { transform: translateY(0) rotate(-6deg); opacity: 0; }
+  15%  { opacity: .85; }
+  80%  { transform: translateY(-26px) rotate(8deg); opacity: .45; }
+  100% { transform: translateY(-36px) rotate(12deg); opacity: 0; }
+}
+
+/* ── Shocked hand cover — spring in, no wobble ── */
+@keyframes handCoverL { from { transform: translate(0,22px) scale(.65); opacity: 0; } to { transform: translate(0,0) scale(1); opacity: 1; } }
+@keyframes handCoverR { from { transform: translate(0,22px) scale(.65); opacity: 0; } to { transform: translate(0,0) scale(1); opacity: 1; } }
+.hand-cover-l { animation: handCoverL .38s cubic-bezier(.34,1.56,.64,1) .00s both; }
+.hand-cover-r { animation: handCoverR .38s cubic-bezier(.34,1.56,.64,1) .10s both; }
+
+/* ── Eating: meat chunks travel toward mouth then vanish, one at a time ──
+   Each chunk animates from its resting position on the stick toward
+   the mouth (translateX/Y toward right cheek) then disappears.
+   Three chunks, each delayed 0.8s apart in a 2.4s loop.
+   transform-origin is the chunk's own center so scaling shrinks it in-place.
+── */
+@keyframes eatChunk {
+  0%,18%  { opacity: 1; transform: translate(0px, 0px) scale(1); }
+  55%     { opacity: .6; transform: translate(-9px, -5px) scale(.55); }
+  72%,100%{ opacity: 0; transform: translate(-14px, -8px) scale(0); }
+}
+.eat-c0 { animation: eatChunk 2.4s ease-in-out infinite 0.0s; }
+.eat-c1 { animation: eatChunk 2.4s ease-in-out infinite 0.8s; }
+.eat-c2 { animation: eatChunk 2.4s ease-in-out infinite 1.6s; }
+
+/* Skewer advances a little with each bite */
+@keyframes skNudge { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-3px); } }
+.sk-nudge { animation: skNudge .8s ease-in-out infinite; }
+
+/* ── Listen rings ── */
+.listen-ring { position: absolute; inset: 4px; border-radius: 50%; border: 2px solid var(--suya-listen); animation: listenPing 2.4s cubic-bezier(.2,.6,.4,1) infinite; pointer-events: none; }
+.ring-1 { animation-delay: 0s; }
+.ring-2 { animation-delay: .75s; opacity: .55; }
+.ring-3 { animation-delay: 1.5s; opacity: .3; }
+@keyframes listenPing { 0% { transform: scale(1); opacity: inherit; } 100% { transform: scale(2.8); opacity: 0; } }
+
+/* ── Whoosh locomotion ── */
+.suya-bot.whoosh-out { animation: whooshOut var(--whoosh-dur) cubic-bezier(.4,0,.8,.2) forwards !important; }
+.suya-bot.whoosh-in  { animation: whooshIn calc(var(--whoosh-dur)*.85) cubic-bezier(.2,.8,.4,1.4) forwards !important; }
+@keyframes whooshOut {
+  0%   { transform: scale(1); opacity: 1; }
+  18%  { transform: scaleX(.55) scaleY(1.25); }
+  55%  { transform: scaleX(3.2) scaleY(.28); opacity: .55; filter: blur(5px); }
+  100% { transform: scaleX(4.2) scaleY(.14); opacity: 0; filter: blur(9px); }
+}
+@keyframes whooshIn {
+  0%   { transform: scaleX(3.8) scaleY(.16); opacity: 0; filter: blur(9px); }
+  35%  { transform: scaleX(.62) scaleY(1.38); opacity: 1; filter: blur(1px); }
+  58%  { transform: scaleX(1.2) scaleY(.8); filter: blur(0); }
+  74%  { transform: scaleX(.91) scaleY(1.09); }
+  88%  { transform: scaleX(1.04) scaleY(.97); }
+  100% { transform: scale(1); }
+}
+.suya-speed-trail { position: fixed; border-radius: 50%; pointer-events: none; z-index: 9997; animation: trailFade 360ms ease-out forwards; }
+@keyframes trailFade { 0% { opacity: .6; transform: scale(1); } 100% { opacity: 0; transform: scaleX(3.5) scaleY(.4); } }
+.suya-speed-line { position: fixed; height: 2.5px; border-radius: 2px; background: linear-gradient(90deg,rgba(255,185,60,.9),rgba(255,100,20,0)); pointer-events: none; z-index: 9997; transform-origin: left center; animation: speedLineAnim var(--whoosh-dur) ease-out forwards; }
+@keyframes speedLineAnim { 0% { transform: scaleX(0) rotate(var(--ang)); opacity: 1; } 40% { transform: scaleX(1) rotate(var(--ang)); opacity: .9; } 100% { transform: scaleX(1.12) rotate(var(--ang)); opacity: 0; } }
+
+/* ── Bubble ── */
+.suya-bubble { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); min-width: 220px; max-width: 330px; padding: 15px 18px 15px 14px; display: flex; align-items: flex-start; gap: 10px; background: linear-gradient(145deg,rgba(255,252,242,.97),rgba(255,245,220,.95)); backdrop-filter: blur(24px) saturate(1.6); border: 1px solid rgba(255,185,90,.3); border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,.12),0 0 0 1px rgba(255,255,255,.6) inset; animation: bubbleSpring .42s cubic-bezier(.34,1.56,.64,1) both; z-index: 10002; pointer-events: auto; }
+.bubble-top-accent { position: absolute; top: 0; left: 16px; right: 16px; height: 2px; border-radius: 0 0 2px 2px; background: linear-gradient(90deg,transparent,rgba(255,160,60,.55) 30%,rgba(255,200,80,.7) 50%,rgba(255,160,60,.55) 70%,transparent); }
+.bubble-icon { font-size: 18px; flex-shrink: 0; line-height: 1; margin-top: 1px; }
+.bubble-content { font-size: 13px; line-height: 1.55; color: #2E1408; font-weight: 500; font-family: -apple-system,'Segoe UI',system-ui,sans-serif; }
+.bubble-tail { position: absolute; bottom: -10px; left: 28px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid rgba(255,245,220,.97); }
+@keyframes bubbleSpring { from { opacity: 0; transform: translate(-50%,-50%) scale(.68) translateY(14px); } to { opacity: 1; transform: translate(-50%,-50%) scale(1) translateY(0); } }
+
+/* ── Vignette highlight ── */
+.suya-highlight-wrapper { position: absolute; pointer-events: none; z-index: 9999; border-radius: 14px; }
+.vignette-frame { position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 2.5px rgba(255,165,40,.9),0 0 0 6px rgba(255,140,20,.4),0 0 44px rgba(255,140,0,.52); background: radial-gradient(ellipse at center,rgba(255,200,80,.05),transparent 65%); animation: vigBreath 1.8s ease-in-out infinite; }
+@keyframes vigBreath { 0%,100% { box-shadow: 0 0 0 2.5px rgba(255,165,40,.9),0 0 0 6px rgba(255,140,20,.4),0 0 44px rgba(255,140,0,.52); } 50% { box-shadow: 0 0 0 3.5px rgba(255,200,60,1),0 0 0 9px rgba(255,160,30,.5),0 0 70px rgba(255,160,0,.7); } }
+
+@media (prefers-color-scheme: dark) {
+  .suya-bubble { background: linear-gradient(145deg,rgba(25,12,3,.97),rgba(18,8,2,.95)); border-color: rgba(255,150,60,.28); }
+  .bubble-content { color: #FFD9A8; }
+  .bubble-tail { border-top-color: rgba(18,8,2,.97); }
+  .suya-bot { filter: drop-shadow(0 4px 14px rgba(80,20,0,.5)); }
+  .suya-bot.mode-offline { filter: drop-shadow(0 2px 8px rgba(0,0,0,.4)) saturate(0); }
+}
+@media (max-width: 768px) { .suya-bot { transform-origin: center bottom; } }
+@media (prefers-reduced-motion: reduce) {
+  .suya-bot,.listen-ring,.vignette-frame,.suya-bubble,
+  .suya-speed-trail,.suya-speed-line,.z-particle,
+  .hand-cover-l,.hand-cover-r,.eat-c0,.eat-c1,.eat-c2,.sk-nudge {
+    animation: none !important; transition: none !important;
+  }
+}

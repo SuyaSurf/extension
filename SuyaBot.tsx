@@ -540,6 +540,19 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     }, WHOOSH_DUR * 0.52);
   };
 
+  /** Programmatically reposition to a random different corner */
+  const reposition = useCallback(() => {
+    const cur = prevPos.current || pos;
+    const others = (['bottom-right','bottom-left','top-right','top-left'] as Corner[]).filter(c => c !== cur.corner);
+    const nc = others[Math.floor(Math.random() * others.length)];
+    const pad = 20, sw = window.innerWidth, sh = window.innerHeight;
+    triggerWhoosh(cur, {
+      corner: nc,
+      x: nc.includes('right') ? sw - 88 - pad : pad,
+      y: nc.includes('bottom') ? sh - 96 - pad : pad,
+    });
+  }, [pos]);
+
   useEffect(() => {
     if (mode === 'sleeping' || mode === 'offline' || mode === 'idle' || mode === 'bored') return;
     if (isBusy)          setExpr('eating');
@@ -602,12 +615,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
           </div>
         )}
         {showMsg && message && (
-          <div className="suya-bubble" style={{
-            position: 'absolute',
-            left: `${pos.x + 32}px`,
-            top: `${pos.y - 10}px`,
-            transform: 'translate(-50%, -100%)',
-          }}>
+          <div className="suya-bubble">
             <div className="bubble-top-accent"/>
             <div className="bubble-icon" aria-hidden>🍢</div>
             <div className="bubble-content">{message}</div>

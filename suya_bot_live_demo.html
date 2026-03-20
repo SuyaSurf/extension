@@ -1,0 +1,313 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:transparent}
+
+.demo{padding:20px 16px 28px;display:flex;flex-direction:column;gap:24px}
+.section-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:500;margin-bottom:12px}
+
+/* Bot shell */
+.bot-shell{
+  width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;flex-shrink:0;overflow:visible;
+  background:radial-gradient(ellipse at 38% 32%, #FFC870 0%, #FF8C35 30%, #E0580A 65%, #B33F00 100%);
+  box-shadow:0 0 0 2px rgba(255,200,100,.3),0 4px 16px rgba(180,60,0,.4),inset 0 1px 2px rgba(255,255,255,.22);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease;
+}
+.bot-shell:hover{transform:scale(1.12);box-shadow:0 0 0 3px rgba(255,200,100,.5),0 8px 28px rgba(180,60,0,.5),inset 0 1px 2px rgba(255,255,255,.25)}
+.bot-shell.listening{background:radial-gradient(ellipse at 38% 32%, #A8DCFF 0%, #5CB8F0 30%, #2884C8 65%, #1260A8 100%);box-shadow:0 0 0 2px rgba(140,210,255,.35),0 4px 16px rgba(18,96,168,.4),inset 0 1px 2px rgba(255,255,255,.25)}
+.bot-shell.active{background:radial-gradient(ellipse at 38% 32%, #FFE299 0%, #FFAA4A 30%, #FF7020 65%, #CC5500 100%);box-shadow:0 0 0 2.5px rgba(255,220,120,.55),0 8px 28px rgba(200,80,0,.5),inset 0 1px 2px rgba(255,255,255,.25)}
+
+/* Float anim for static faces */
+@keyframes floatBot{0%,100%{transform:translateY(0) rotate(0deg)}30%{transform:translateY(-7px) rotate(-2deg)}65%{transform:translateY(-3px) rotate(1.5deg)}}
+.floating{animation:floatBot 4.5s ease-in-out infinite}
+
+/* Chomp for eating */
+@keyframes chomp{0%,100%{transform:scale(1) rotate(0deg)}25%{transform:scale(1.07) rotate(-4deg)}75%{transform:scale(1.06) rotate(3deg)}}
+.chomping{animation:chomp .75s ease-in-out infinite}
+
+/* Listen breath */
+@keyframes listenBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.listening.floating{animation:listenBreath 3s ease-in-out infinite}
+
+/* Listen rings */
+.ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(74,184,232,.65);animation:ping 2.2s cubic-bezier(.2,.6,.4,1) infinite;pointer-events:none}
+.ring2{animation-delay:.7s;border-color:rgba(74,184,232,.45)}
+.ring3{animation-delay:1.4s;border-color:rgba(74,184,232,.3)}
+@keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+
+/* Skewer eating */
+.grill{display:flex;gap:18px;align-items:flex-end;filter:drop-shadow(0 6px 14px rgba(180,50,10,.55))}
+.skewer{display:block}
+.sk1{animation:rise 2.5s cubic-bezier(.4,0,.6,1) infinite 0s}
+.sk2{animation:rise 2.5s cubic-bezier(.4,0,.6,1) infinite .5s}
+.sk3{animation:rise 2.5s cubic-bezier(.4,0,.6,1) infinite 1s}
+@keyframes rise{0%{transform:translateY(32px);opacity:0}6%{opacity:1}72%{transform:translateY(-42px);opacity:1}85%{transform:translateY(-56px);opacity:0}86%{transform:translateY(36px);opacity:0}100%{transform:translateY(36px);opacity:0}}
+
+.mp{transform-origin:center}
+.p0{animation:bite 2.5s ease-in-out infinite .45s}
+.p1{animation:bite 2.5s ease-in-out infinite .76s}
+.p2{animation:bite 2.5s ease-in-out infinite 1.07s}
+.p3{animation:bite 2.5s ease-in-out infinite 1.38s}
+@keyframes bite{0%,25%{opacity:1;transform:scale(1)}48%{opacity:.45;transform:scale(.82) scaleX(.7)}62%,100%{opacity:0;transform:scale(.35) scaleX(.2)}}
+
+/* Steam */
+@keyframes steam{0%{transform:translateX(-50%) translateY(0) scaleX(1);opacity:0}15%{opacity:1}100%{transform:translateX(-50%) translateY(-30px) scaleX(1.9);opacity:0}}
+
+/* Bubble */
+.bubble{
+  background:rgba(255,252,242,.97);border:1px solid rgba(255,185,90,.3);border-radius:18px;
+  padding:14px 18px 14px 14px;display:flex;align-items:flex-start;gap:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.1),0 0 0 1px rgba(255,255,255,.65) inset;
+  max-width:280px;position:relative;
+  animation:bubbleIn .4s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes bubbleIn{from{opacity:0;transform:scale(.72) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.bubble-tail{position:absolute;bottom:-10px;left:28px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:10px solid rgba(255,252,242,.97);filter:drop-shadow(0 2px 2px rgba(0,0,0,.06))}
+.bubble-accent{position:absolute;top:0;left:18px;right:18px;height:2px;border-radius:0 0 2px 2px;background:linear-gradient(90deg,transparent,rgba(255,160,60,.55) 30%,rgba(255,200,80,.7) 50%,rgba(255,160,60,.55) 70%,transparent)}
+
+/* Vignette */
+.vig{position:absolute;inset:0;border-radius:10px;box-shadow:0 0 0 2.5px rgba(255,165,40,.9),0 0 0 6px rgba(255,140,20,.4),0 0 0 13px rgba(255,120,0,.15),0 0 40px rgba(255,140,0,.5),0 0 80px rgba(255,100,0,.22);animation:vigBreath 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes vigBreath{0%,100%{box-shadow:0 0 0 2.5px rgba(255,165,40,.9),0 0 0 6px rgba(255,140,20,.4),0 0 40px rgba(255,140,0,.5),0 0 80px rgba(255,100,0,.22)}50%{box-shadow:0 0 0 3.5px rgba(255,200,60,1),0 0 0 8px rgba(255,160,30,.5),0 0 60px rgba(255,160,0,.65),0 0 110px rgba(255,120,0,.35)}}
+.vig::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,200,100,0) 0%,rgba(255,200,100,.16) 48%,rgba(255,200,100,0) 100%);animation:scan 2s ease-in-out infinite}
+@keyframes scan{0%{transform:translateY(-100%);opacity:0}20%{opacity:1}80%{opacity:1}100%{transform:translateY(100%);opacity:0}}
+
+/* Layout */
+.faces-row{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap}
+.face-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.face-label{font-size:11px;color:var(--color-text-secondary);font-weight:500}
+.busy-demo{display:flex;align-items:center;gap:28px;padding:12px 0}
+.busy-inner{position:relative;width:64px;height:220px;overflow:visible;display:flex;align-items:flex-end;justify-content:center}
+.bubble-demo{display:flex;flex-direction:column;gap:8px}
+.vig-demo{position:relative;width:180px;height:80px;border-radius:10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;overflow:visible}
+.vig-text{font-size:13px;color:var(--color-text-primary);font-weight:500}
+.divider{height:.5px;background:var(--color-border-tertiary);width:100%}
+
+/* Buttons */
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+button.demo-btn{font-size:12px;padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;font-family:var(--font-sans)}
+button.demo-btn:hover{background:var(--color-background-secondary)}
+button.demo-btn.active-btn{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+</style>
+
+<div class="demo">
+
+  <!-- EXPRESSIONS ROW -->
+  <div>
+    <div class="section-label">Expressions</div>
+    <div class="faces-row" id="facesRow">
+      <!-- neutral -->
+      <div class="face-col">
+        <div class="bot-shell floating" id="faceNeutral">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+            <defs>
+              <radialGradient id="skin" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#FFF3E0"/><stop offset="55%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFBA72"/></radialGradient>
+              <radialGradient id="iris" cx="30%" cy="28%" r="70%"><stop offset="0%" stop-color="#6BB8F0"/><stop offset="55%" stop-color="#2370C0"/><stop offset="100%" stop-color="#0D3A80"/></radialGradient>
+            </defs>
+            <line x1="24" y1="6" x2="24" y2="13" stroke="#D4924A" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="4.5" r="3.2" fill="#FF6B1A"/>
+            <circle cx="22.8" cy="3.4" r="1.1" fill="rgba(255,255,255,.6)"/>
+            <circle cx="24" cy="28" r="18.5" fill="url(#skin)" stroke="#E0924A" stroke-width="1.2"/>
+            <ellipse cx="20" cy="18" rx="8" ry="4.5" fill="rgba(255,255,255,.18)" transform="rotate(-15 20 18)"/>
+            <circle cx="16.5" cy="25" r="4.5" fill="url(#iris)"/><circle cx="16.5" cy="25" r="2.5" fill="#071C4A"/><circle cx="17.7" cy="23.4" r="1.3" fill="rgba(255,255,255,.9)"/>
+            <circle cx="31.5" cy="25" r="4.5" fill="url(#iris)"/><circle cx="31.5" cy="25" r="2.5" fill="#071C4A"/><circle cx="32.7" cy="23.4" r="1.3" fill="rgba(255,255,255,.9)"/>
+            <path d="M12.5 20 Q16.5 18 20.5 19.5" stroke="#C07040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M27.5 19.5 Q31.5 18 35.5 20" stroke="#C07040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M18 35 Q24 37 30 35" stroke="#B8602A" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="face-label">Neutral</span>
+      </div>
+
+      <!-- happy -->
+      <div class="face-col">
+        <div class="bot-shell active floating" id="faceHappy">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+            <defs>
+              <radialGradient id="skin2" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#FFF3E0"/><stop offset="55%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFBA72"/></radialGradient>
+              <radialGradient id="blush2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(255,120,90,.4)"/><stop offset="100%" stop-color="rgba(255,120,90,0)"/></radialGradient>
+            </defs>
+            <line x1="24" y1="6" x2="24" y2="13" stroke="#D4924A" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="4.5" r="3.2" fill="#FFE070"/>
+            <circle cx="24" cy="28" r="18.5" fill="url(#skin2)" stroke="#E0924A" stroke-width="1.2"/>
+            <path d="M12 24.5 Q16.5 19.5 21 24.5" stroke="#1A5090" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <path d="M27 24.5 Q31.5 19.5 36 24.5" stroke="#1A5090" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <path d="M12 20 Q16.5 17 21 18.5" stroke="#C07040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M27 18.5 Q31.5 17 36 20" stroke="#C07040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M15 32 Q24 41.5 33 32" stroke="#A84C18" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="10" cy="30" rx="5" ry="3.5" fill="url(#blush2)"/>
+            <ellipse cx="38" cy="30" rx="5" ry="3.5" fill="url(#blush2)"/>
+            <path d="M38 10 L39 8 L40 10 L38 11 Z" fill="#FFD060" opacity=".7"/>
+          </svg>
+        </div>
+        <span class="face-label">Happy</span>
+      </div>
+
+      <!-- thinking -->
+      <div class="face-col">
+        <div class="bot-shell floating" id="faceThinking">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+            <defs>
+              <radialGradient id="skin3" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#FFF3E0"/><stop offset="55%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFBA72"/></radialGradient>
+              <radialGradient id="iris3" cx="30%" cy="28%" r="70%"><stop offset="0%" stop-color="#6BB8F0"/><stop offset="55%" stop-color="#2370C0"/><stop offset="100%" stop-color="#0D3A80"/></radialGradient>
+              <radialGradient id="thought3" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFB870"/></radialGradient>
+            </defs>
+            <line x1="24" y1="6" x2="24" y2="13" stroke="#D4924A" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="4.5" r="3.2" fill="#FF6B1A"/>
+            <circle cx="24" cy="28" r="18.5" fill="url(#skin3)" stroke="#E0924A" stroke-width="1.2"/>
+            <circle cx="16.5" cy="25" r="4.5" fill="url(#iris3)"/><circle cx="16.5" cy="25" r="2.5" fill="#071C4A"/><circle cx="17.7" cy="23.4" r="1.3" fill="rgba(255,255,255,.9)"/>
+            <circle cx="31.5" cy="24" r="4.5" fill="url(#iris3)"/><circle cx="30.5" cy="23" r="2.5" fill="#071C4A"/><circle cx="31.5" cy="22" r="1.3" fill="rgba(255,255,255,.9)"/>
+            <path d="M12.5 20 Q16.5 18 20.5 19.5" stroke="#C07040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M27 17.5 Q31.5 15 35.5 17" stroke="#C07040" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+            <path d="M16 34.5 Q20 33 24 34 Q27 35.5 30 33.5" stroke="#B8602A" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <circle cx="36" cy="14" r="1.5" fill="url(#thought3)" opacity=".55"/>
+            <circle cx="39.5" cy="10" r="2.1" fill="url(#thought3)" opacity=".72"/>
+            <circle cx="43" cy="6.5" r="2.8" fill="url(#thought3)" opacity=".82"/>
+          </svg>
+        </div>
+        <span class="face-label">Thinking</span>
+      </div>
+
+      <!-- eating -->
+      <div class="face-col">
+        <div class="bot-shell chomping" id="faceEating">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+            <defs>
+              <radialGradient id="skin4" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#FFF3E0"/><stop offset="55%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFBA72"/></radialGradient>
+              <radialGradient id="iris4" cx="30%" cy="28%" r="70%"><stop offset="0%" stop-color="#6BB8F0"/><stop offset="55%" stop-color="#2370C0"/><stop offset="100%" stop-color="#0D3A80"/></radialGradient>
+              <radialGradient id="blush4" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(255,110,80,.45)"/><stop offset="100%" stop-color="rgba(255,110,80,0)"/></radialGradient>
+            </defs>
+            <line x1="24" y1="6" x2="24" y2="13" stroke="#D4924A" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="4.5" r="3.2" fill="#FF6B1A"/>
+            <circle cx="24" cy="28" r="18.5" fill="url(#skin4)" stroke="#E0924A" stroke-width="1.2"/>
+            <circle cx="16.5" cy="24" r="5.2" fill="url(#iris4)"/><circle cx="16.5" cy="24" r="3" fill="#071C4A"/><circle cx="18.2" cy="22.2" r="1.5" fill="rgba(255,255,255,.95)"/>
+            <circle cx="31.5" cy="24" r="5.2" fill="url(#iris4)"/><circle cx="31.5" cy="24" r="3" fill="#071C4A"/><circle cx="33.2" cy="22.2" r="1.5" fill="rgba(255,255,255,.95)"/>
+            <path d="M11.5 18.5 Q16.5 15.5 21 17.5" stroke="#B86030" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+            <path d="M27 17.5 Q31.5 15.5 36.5 18.5" stroke="#B86030" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+            <path d="M14 32 Q24 43.5 34 32" fill="#9A2808"/>
+            <path d="M14 32 Q24 34 34 32" fill="white"/>
+            <ellipse cx="24" cy="37.5" rx="5" ry="3" fill="#FF7070"/>
+            <ellipse cx="24" cy="37" rx="3" ry="1.5" fill="#E04040" opacity=".4"/>
+            <ellipse cx="9" cy="29" rx="5.5" ry="4" fill="url(#blush4)"/>
+            <ellipse cx="39" cy="29" rx="5.5" ry="4" fill="url(#blush4)"/>
+            <circle cx="10" cy="36" r="1.2" fill="#C4622D" opacity=".55"/>
+            <circle cx="38" cy="38" r=".9" fill="#C4622D" opacity=".45"/>
+          </svg>
+        </div>
+        <span class="face-label">Eating</span>
+      </div>
+
+      <!-- listening -->
+      <div class="face-col">
+        <div class="bot-shell listening" id="faceListening" style="animation:listenBreath 3s ease-in-out infinite">
+          <div class="ring"></div>
+          <div class="ring ring2"></div>
+          <div class="ring ring3"></div>
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+            <defs>
+              <radialGradient id="skin5" cx="40%" cy="30%" r="65%"><stop offset="0%" stop-color="#FFF3E0"/><stop offset="55%" stop-color="#FFD9A8"/><stop offset="100%" stop-color="#FFBA72"/></radialGradient>
+              <radialGradient id="iris5" cx="30%" cy="28%" r="70%"><stop offset="0%" stop-color="#A0E8FF"/><stop offset="55%" stop-color="#20B0E8"/><stop offset="100%" stop-color="#0870B8"/></radialGradient>
+            </defs>
+            <line x1="24" y1="6" x2="24" y2="13" stroke="#80B8D4" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="4.5" r="3.2" fill="#4AB8E8"/>
+            <circle cx="24" cy="28" r="18.5" fill="url(#skin5)" stroke="#80B8C8" stroke-width="1.2"/>
+            <circle cx="16.5" cy="25" r="5.8" fill="url(#iris5)"/><circle cx="16.5" cy="25" r="3.5" fill="#041830"/><circle cx="18.5" cy="22.8" r="1.8" fill="rgba(255,255,255,.95)"/>
+            <circle cx="31.5" cy="25" r="5.8" fill="url(#iris5)"/><circle cx="31.5" cy="25" r="3.5" fill="#041830"/><circle cx="33.5" cy="22.8" r="1.8" fill="rgba(255,255,255,.95)"/>
+            <path d="M11.5 19.5 Q16.5 17 21 18.5" stroke="#80B0C8" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M27 18.5 Q31.5 17 36.5 19.5" stroke="#80B0C8" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <ellipse cx="24" cy="36" rx="3.8" ry="3" fill="#9A3810"/>
+            <ellipse cx="24" cy="35.5" rx="2.4" ry="1.8" fill="#6A2008"/>
+          </svg>
+        </div>
+        <span class="face-label">Listening</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SUYA GRILL -->
+  <div>
+    <div class="section-label">Busy — suya skewers rising</div>
+    <div class="busy-demo">
+      <div class="busy-inner">
+        <div class="grill">
+          <!-- Skewer 1 -->
+          <svg width="15" height="80" viewBox="0 0 15 80" class="skewer sk1">
+            <defs>
+              <linearGradient id="wd0" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#4E2810"/><stop offset="25%" stop-color="#7A4825"/><stop offset="55%" stop-color="#9B6035"/><stop offset="80%" stop-color="#7A4825"/><stop offset="100%" stop-color="#5A3018"/></linearGradient>
+              <linearGradient id="ma0" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#C45030"/><stop offset="40%" stop-color="#8B2010"/><stop offset="100%" stop-color="#5A1208"/></linearGradient>
+              <linearGradient id="mb0" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#D46838"/><stop offset="40%" stop-color="#9B2A14"/><stop offset="100%" stop-color="#6A1A0C"/></linearGradient>
+            </defs>
+            <rect x="6" y="0" width="3" height="76" rx="1.5" fill="url(#wd0)"/>
+            <line x1="6.8" y1="8" x2="6.8" y2="20" stroke="rgba(0,0,0,.18)" stroke-width=".4" stroke-linecap="round"/>
+            <line x1="8" y1="30" x2="8" y2="45" stroke="rgba(0,0,0,.12)" stroke-width=".4" stroke-linecap="round"/>
+            <polygon points="6,73 9,73 7.5,80" fill="#3C1A08"/>
+            <g class="mp p0"><rect x="1" y="4" width="13" height="12" rx="3" fill="url(#ma0)"/><rect x="2" y="6.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".52"/><rect x="2" y="9.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="12.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="4" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.38)"/></g>
+            <g class="mp p1"><rect x="1" y="19" width="13" height="12" rx="3" fill="url(#mb0)"/><rect x="2" y="21.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".52"/><rect x="2" y="24.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="27.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="19" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.38)"/></g>
+            <g class="mp p2"><rect x="1" y="34" width="13" height="12" rx="3" fill="url(#ma0)"/><rect x="2" y="36.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".52"/><rect x="2" y="39.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="42.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="34" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.38)"/></g>
+            <g class="mp p3"><rect x="1" y="49" width="13" height="12" rx="3" fill="url(#mb0)"/><rect x="2" y="51.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".52"/><rect x="2" y="54.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="57.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="49" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.38)"/></g>
+          </svg>
+          <!-- Skewer 2 -->
+          <svg width="15" height="80" viewBox="0 0 15 80" class="skewer sk2">
+            <defs>
+              <linearGradient id="wd1" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#4E2810"/><stop offset="25%" stop-color="#7A4825"/><stop offset="55%" stop-color="#9B6035"/><stop offset="80%" stop-color="#7A4825"/><stop offset="100%" stop-color="#5A3018"/></linearGradient>
+              <linearGradient id="ma1" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#C45030"/><stop offset="40%" stop-color="#8B2010"/><stop offset="100%" stop-color="#5A1208"/></linearGradient>
+              <linearGradient id="mb1" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#D46838"/><stop offset="40%" stop-color="#9B2A14"/><stop offset="100%" stop-color="#6A1A0C"/></linearGradient>
+            </defs>
+            <rect x="6" y="0" width="3" height="76" rx="1.5" fill="url(#wd1)"/>
+            <line x1="7.2" y1="12" x2="7.2" y2="26" stroke="rgba(0,0,0,.15)" stroke-width=".4" stroke-linecap="round"/>
+            <polygon points="6,73 9,73 7.5,80" fill="#3C1A08"/>
+            <g class="mp p0"><rect x="1" y="4" width="13" height="12" rx="3" fill="url(#mb1)"/><rect x="2" y="6.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".48"/><rect x="2" y="9.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".38"/><rect x="2" y="12.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".28"/><rect x="2.5" y="4" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.32)"/></g>
+            <g class="mp p1"><rect x="1" y="19" width="13" height="12" rx="3" fill="url(#ma1)"/><rect x="2" y="21.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".48"/><rect x="2" y="24.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".38"/><rect x="2" y="27.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".28"/><rect x="2.5" y="19" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.32)"/></g>
+            <g class="mp p2"><rect x="1" y="34" width="13" height="12" rx="3" fill="url(#mb1)"/><rect x="2" y="36.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".48"/><rect x="2" y="39.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".38"/><rect x="2" y="42.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".28"/><rect x="2.5" y="34" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.32)"/></g>
+            <g class="mp p3"><rect x="1" y="49" width="13" height="12" rx="3" fill="url(#ma1)"/><rect x="2" y="51.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".48"/><rect x="2" y="54.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".38"/><rect x="2" y="57.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".28"/><rect x="2.5" y="49" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.32)"/></g>
+          </svg>
+          <!-- Skewer 3 -->
+          <svg width="15" height="80" viewBox="0 0 15 80" class="skewer sk3">
+            <defs>
+              <linearGradient id="wd2" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#4E2810"/><stop offset="25%" stop-color="#7A4825"/><stop offset="55%" stop-color="#9B6035"/><stop offset="80%" stop-color="#7A4825"/><stop offset="100%" stop-color="#5A3018"/></linearGradient>
+              <linearGradient id="ma2" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#C45030"/><stop offset="40%" stop-color="#8B2010"/><stop offset="100%" stop-color="#5A1208"/></linearGradient>
+              <linearGradient id="mb2" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#D46838"/><stop offset="40%" stop-color="#9B2A14"/><stop offset="100%" stop-color="#6A1A0C"/></linearGradient>
+            </defs>
+            <rect x="6" y="0" width="3" height="76" rx="1.5" fill="url(#wd2)"/>
+            <line x1="7.8" y1="5" x2="7.8" y2="18" stroke="rgba(0,0,0,.16)" stroke-width=".4" stroke-linecap="round"/>
+            <polygon points="6,73 9,73 7.5,80" fill="#3C1A08"/>
+            <g class="mp p0"><rect x="1" y="4" width="13" height="12" rx="3" fill="url(#ma2)"/><rect x="2" y="6.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".5"/><rect x="2" y="9.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="12.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="4" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.36)"/><rect x="7" y="7" width="4" height="1.5" rx=".6" fill="rgba(255,235,200,.28)"/></g>
+            <g class="mp p1"><rect x="1" y="19" width="13" height="12" rx="3" fill="url(#mb2)"/><rect x="2" y="21.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".5"/><rect x="2" y="24.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="27.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="19" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.36)"/></g>
+            <g class="mp p2"><rect x="1" y="34" width="13" height="12" rx="3" fill="url(#ma2)"/><rect x="2" y="36.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".5"/><rect x="2" y="39.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="42.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="34" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.36)"/></g>
+            <g class="mp p3"><rect x="1" y="49" width="13" height="12" rx="3" fill="url(#mb2)"/><rect x="2" y="51.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".5"/><rect x="2" y="54.5" width="11" height="1.4" rx=".6" fill="#240A02" opacity=".4"/><rect x="2" y="57.5" width="11" height="1.2" rx=".6" fill="#240A02" opacity=".3"/><rect x="2.5" y="49" width="5.5" height="4" rx="1.5" fill="rgba(255,210,130,.36)"/></g>
+          </svg>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--color-text-secondary);line-height:1.6;max-width:200px">
+        Three skewers with char-grilled meat chunks rise in staggered sequence. Each chunk dissolves as it reaches the top — the suya hourglass.
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- BUBBLE + VIGNETTE -->
+  <div>
+    <div class="section-label">Bubble message &amp; vignette highlight</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div class="bubble-demo">
+        <div class="bubble" id="bubbleDemo">
+          <div class="bubble-accent"></div>
+          <span style="font-size:22px;line-height:1;flex-shrink:0">🍢</span>
+          <span style="font-size:13.5px;line-height:1.55;color:#2E1408;font-weight:500">This section looks important — want me to walk you through it?</span>
+          <div class="bubble-tail"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="vig-demo" id="vigDemo">
+          <span class="vig-text">Highlighted element</span>
+          <div class="vig"></div>
+        </div>
+        <span style="font-size:11px;color:var(--color-text-tertiary)">Amber scan + triple ring glow</span>
+      </div>
+    </div>
+  </div>
+
+</div>
