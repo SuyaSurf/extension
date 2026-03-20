@@ -1,0 +1,59 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="skin" cx="38%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#FFF0DC"/>
+      <stop offset="48%" stop-color="#FFD49A"/>
+      <stop offset="100%" stop-color="#F0A860"/>
+    </radialGradient>
+    <radialGradient id="iris" cx="28%" cy="25%" r="68%">
+      <stop offset="0%" stop-color="#7EC4F4"/>
+      <stop offset="50%" stop-color="#1E6EC0"/>
+      <stop offset="100%" stop-color="#0C3880"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="32%" cy="28%" r="65%">
+      <stop offset="0%" stop-color="#FFE070"/>
+      <stop offset="100%" stop-color="#FF6B1A"/>
+    </radialGradient>
+    <radialGradient id="blush" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,110,80,.48)"/>
+      <stop offset="100%" stop-color="rgba(255,110,80,0)"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle for better visibility -->
+  <circle cx="64" cy="64" r="62" fill="#FFFBF5" stroke="#FFD49A" stroke-width="2"/>
+  
+  <!-- Antenna -->
+  <line x1="64" y1="18" x2="64" y2="30" stroke="#C8804A" stroke-width="3.6" stroke-linecap="round"/>
+  <circle cx="64" cy="14" r="8" fill="url(#orb)"/>
+  <circle cx="61" cy="11.6" r="2.2" fill="rgba(255,255,255,.65)"/>
+  
+  <!-- Head -->
+  <circle cx="64" cy="80" r="56" fill="url(#skin)" stroke="#D88040" stroke-width="2"/>
+  <ellipse cx="46" cy="54" rx="20" ry="11" fill="rgba(255,255,255,.14)" transform="rotate(-14 46 54)"/>
+  
+  <!-- Left Eye -->
+  <ellipse cx="34" cy="76" rx="20" ry="23" fill="#1A0A02"/>
+  <ellipse cx="34" cy="76" rx="17" ry="20" fill="white"/>
+  <ellipse cx="34" cy="76" rx="11.6" ry="13" fill="url(#iris)"/>
+  <circle cx="34" cy="76" r="7" fill="#05152A"/>
+  <circle cx="38.4" cy="70" r="3.8" fill="rgba(255,255,255,.93)"/>
+  
+  <!-- Right Eye -->
+  <ellipse cx="94" cy="76" rx="20" ry="23" fill="#1A0A02"/>
+  <ellipse cx="94" cy="76" rx="17" ry="20" fill="white"/>
+  <ellipse cx="94" cy="76" rx="11.6" ry="13" fill="url(#iris)"/>
+  <circle cx="94" cy="76" r="7" fill="#05152A"/>
+  <circle cx="98.4" cy="70" r="3.8" fill="rgba(255,255,255,.93)"/>
+  
+  <!-- Eyebrows -->
+  <path d="M18 50 Q34 45 49 49" stroke="#7A3A10" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M79 49 Q94 45 110 50" stroke="#7A3A10" stroke-width="6" stroke-linecap="round" fill="none"/>
+  
+  <!-- Mouth -->
+  <path d="M44 114 Q64 120 84 114" stroke="#A04820" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+  
+  <!-- Blush -->
+  <ellipse cx="16" cy="96" rx="12" ry="9" fill="url(#blush)"/>
+  <ellipse cx="112" cy="96" rx="12" ry="9" fill="url(#blush)"/>
+</svg>
