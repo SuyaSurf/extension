@@ -96,10 +96,10 @@ class UIAssistantSkill {
     try {
       switch (action) {
         case 'scrollToTop':
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
           break;
         case 'scrollToBottom':
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+          if (typeof window !== 'undefined') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
           break;
         case 'focusFirstInput':
           const firstInput = document.querySelector('input, textarea, select');
@@ -156,8 +156,8 @@ class UIAssistantSkill {
 
   async getCurrentContext() {
     const context = {
-      url: window.location.href,
-      title: document.title,
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      title: typeof document !== 'undefined' ? document.title : '',
       type: this.detectPageType(),
       elements: this.analyzePageElements(),
       timestamp: Date.now()
@@ -237,8 +237,8 @@ class UIAssistantSkill {
 
   async analyzeCurrentPage() {
     const analysis = {
-      url: window.location.href,
-      title: document.title,
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      title: typeof document !== 'undefined' ? document.title : '',
       type: this.detectPageType(),
       elements: this.analyzePageElements(),
       accessibility: this.analyzeAccessibility(),
@@ -272,8 +272,8 @@ class UIAssistantSkill {
 
   // Helper methods
   detectPageType() {
-    const url = window.location.href;
-    const title = document.title.toLowerCase();
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const title = typeof document !== 'undefined' ? document.title.toLowerCase() : '';
     
     if (url.includes('login') || title.includes('login') || title.includes('sign in')) {
       return 'login';
@@ -377,7 +377,7 @@ class UIAssistantSkill {
 
   setupVoiceCommands() {
     // Initialize voice command recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       this.recognition = new SpeechRecognition();
       

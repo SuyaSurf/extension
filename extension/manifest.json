@@ -13,9 +13,9 @@
     "background",
     "offscreen",
     "downloads",
-    "clipboard",
+    "clipboardRead",
+    "clipboardWrite",
     "notifications",
-    "microphone",
     "desktopCapture",
     "tabCapture",
     "cookies",
@@ -47,6 +47,11 @@
       "matches": ["<all_urls>"],
       "js": ["content-scripts/universal-handler.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js", "vendors.js"],
+      "run_at": "document_end"
     }
   ],
   
@@ -61,14 +66,9 @@
     }
   },
   
-  "offscreen": {
-    "document": "offscreen/offscreen.html",
-    "reasons": ["AUDIO_PLAYBACK", "USER_MEDIA", "DISPLAY_MEDIA", "CLIPBOARD"]
-  },
-  
   "web_accessible_resources": [
     {
-      "resources": ["assets/*", "shared/*"],
+      "resources": ["assets/*", "shared/*", "skills/application-writing/*"],
       "matches": ["<all_urls>"]
     }
   ],

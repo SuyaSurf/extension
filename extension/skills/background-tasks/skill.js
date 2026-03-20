@@ -6,6 +6,8 @@
 import { CronParser } from '../../shared/utils/cron-parser.js';
 import { HistoryManager } from '../../shared/utils/history-manager.js';
 import { ReminderManager } from '../../shared/utils/reminder-manager.js';
+import { AudioManager } from '../../shared/utils/audio-manager.js';
+import { TaskDAG } from '../../shared/utils/task-dag.js';
 
 class BackgroundTasksSkill {
   constructor(config = {}) {
@@ -37,6 +39,12 @@ class BackgroundTasksSkill {
       enableNotifications: true,
       enableSounds: true
     });
+    this.audioManager = new AudioManager({
+      enabled: true,
+      volume: 0.5,
+      soundsEnabled: true
+    });
+    this.taskDAG = new TaskDAG();
     
     this.taskStats = {
       total: 0,
@@ -62,6 +70,9 @@ class BackgroundTasksSkill {
     
     // Initialize reminder manager
     await this.reminderManager.initialize(this.storageManager, this.eventBus);
+    
+    // Initialize audio manager
+    await this.audioManager.initialize();
     
     // Set up task scheduler
     this.setupTaskScheduler();
@@ -189,6 +200,48 @@ class BackgroundTasksSkill {
         
       case 'getReminderCategories':
         return this.getReminderCategories();
+        
+      case 'playSound':
+        return await this.playSound(data.soundName, data.options);
+        
+      case 'stopSound':
+        return await this.stopSound();
+        
+      case 'setVolume':
+        return await this.setVolume(data.volume);
+        
+      case 'getAvailableSounds':
+        return this.getAvailableSounds();
+        
+      case 'addCustomSound':
+        return await this.addCustomSound(data.name, data.soundData);
+        
+      case 'createWorkflow':
+        return this.createWorkflow(data);
+        
+      case 'executeWorkflow':
+        return await this.executeWorkflow(data.workflowId, data.variables);
+        
+      case 'addTaskToDAG':
+        return this.addTaskToDAG(data);
+        
+      case 'getDAGStatistics':
+        return this.getDAGStatistics();
+        
+      case 'getExecutionOrder':
+        return this.getExecutionOrder();
+        
+      case 'detectCircularDependencies':
+        return this.detectCircularDependencies();
+        
+      case 'getReadyTasks':
+        return this.getReadyTasks();
+        
+      case 'exportDAG':
+        return this.exportDAG();
+        
+      case 'importDAG':
+        return this.importDAG(data);
         
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -503,6 +556,11 @@ class BackgroundTasksSkill {
       // Log to history
       await this.logHistoryEvent('task', 'completed', task, 'info', ['task', 'success']);
       
+      // Play success sound
+      if (this.audioManager) {
+        await this.audioManager.playSound('task_complete');
+      }
+      
       // Emit event
       if (this.eventBus) {
         this.eventBus.emit('task-completed', { task, result });
@@ -520,6 +578,11 @@ class BackgroundTasksSkill {
       
       // Log to history
       await this.logHistoryEvent('task', 'failed', { ...task, error: error.message }, 'error', ['task', 'failure']);
+      
+      // Play error sound
+      if (this.audioManager) {
+        await this.audioManager.playSound('error');
+      }
       
       // Emit event
       if (this.eventBus) {
@@ -1126,6 +1189,104 @@ class BackgroundTasksSkill {
 
   getReminderCategories() {
     return this.reminderManager.getCategories();
+  }
+
+  // Audio Management Methods
+  async playSound(soundName, options = {}) {
+    const success = await this.audioManager.playSound(soundName, options);
+    
+    // Log to history
+    await this.logHistoryEvent('audio', 'played', { soundName, options, success }, 'info', ['audio']);
+    
+    return { success };
+  }
+
+  async stopSound() {
+    const success = await this.audioManager.stopSound();
+    
+    // Log to history
+    await this.logHistoryEvent('audio', 'stopped', { success }, 'info', ['audio']);
+    
+    return { success };
+  }
+
+  async setVolume(volume) {
+    await this.audioManager.setVolume(volume);
+    
+    // Log to history
+    await this.logHistoryEvent('audio', 'volume_set', { volume }, 'info', ['audio']);
+    
+    return { success: true };
+  }
+
+  getAvailableSounds() {
+    return this.audioManager.getAvailableSounds();
+  }
+
+  async addCustomSound(name, soundData) {
+    this.audioManager.addSound(name, soundData);
+    
+    // Log to history
+    await this.logHistoryEvent('audio', 'custom_sound_added', { name, soundData }, 'info', ['audio']);
+    
+    return { success: true };
+  }
+
+  // DAG Management Methods
+  async createWorkflow(workflowData) {
+    const workflow = this.taskDAG.createWorkflow(workflowData);
+    
+    // Log to history
+    await this.logHistoryEvent('workflow', 'created', workflow, 'info', ['workflow']);
+    
+    return workflow;
+  }
+
+  async executeWorkflow(workflowId, variables = {}) {
+    const execution = await this.taskDAG.executeWorkflow(workflowId, variables);
+    
+    // Log to history
+    await this.logHistoryEvent('workflow', 'executed', execution, 'info', ['workflow']);
+    
+    return execution;
+  }
+
+  async addTaskToDAG(taskNodeData) {
+    const node = this.taskDAG.addTaskNode(taskNodeData);
+    
+    // Log to history
+    await this.logHistoryEvent('dag', 'task_added', node, 'info', ['dag']);
+    
+    return node;
+  }
+
+  getDAGStatistics() {
+    return this.taskDAG.getStatistics();
+  }
+
+  getExecutionOrder() {
+    return this.taskDAG.getExecutionOrder();
+  }
+
+  detectCircularDependencies() {
+    return this.taskDAG.detectCircularDependencies();
+  }
+
+  getReadyTasks() {
+    return this.taskDAG.getReadyTasks();
+  }
+
+  exportDAG() {
+    return this.taskDAG.export();
+  }
+
+  async importDAG(data) {
+    this.taskDAG.import(data);
+    
+    // Log to history
+    await this.logHistoryEvent('dag', 'imported', { nodeCount: Object.keys(data.nodes).length }, 'info', ['dag']);
+    
+    return { success: true };
   }
 }
 

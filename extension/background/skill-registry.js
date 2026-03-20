@@ -132,12 +132,14 @@ class SkillRegistry {
       },
       { 
         class: ApplicationWritingSkill, 
-        autoActivate: false,
+        autoActivate: true,
         priority: 7,
         config: {
-          autoDetectForms: true,
-          smartFillEnabled: true,
-          templateLibrary: true
+          autoDetect: true,
+          smartFill: true,
+          aiAssistance: true,
+          templates: true,
+          serverEndpoint: 'https://api.suya.example.com'
         }
       },
       { 

@@ -52,14 +52,16 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: './src/popup/popup.html',
+        template: '../popup/popup.html',
         filename: '../popup/popup.html',
-        chunks: ['popup']
+        chunks: ['popup'],
+        publicPath: './'
       }),
       new HtmlWebpackPlugin({
         template: './src/offscreen/offscreen.html',
         filename: '../offscreen/offscreen.html',
-        chunks: ['offscreen']
+        chunks: ['offscreen'],
+        publicPath: './'
       })
     ],
     optimization: {

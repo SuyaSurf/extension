@@ -54,7 +54,7 @@ class DocumentSkillsSkill {
   }
 
   detectDocumentType() {
-    const url = window.location.href;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
     
     if (url.includes('docs.google.com')) {
       this.documentType = 'docs';

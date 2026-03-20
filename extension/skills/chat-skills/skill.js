@@ -50,7 +50,7 @@ class ChatSkillsSkill {
   }
 
   detectChatPlatform() {
-    const url = window.location.href;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
     
     if (url.includes('web.telegram.org')) {
       this.currentPlatform = 'telegram';

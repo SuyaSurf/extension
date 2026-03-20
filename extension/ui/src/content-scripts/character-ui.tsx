@@ -13,9 +13,11 @@ interface PageContext {
   hasButtons: boolean
   hasInputs: boolean
   primaryText: string
+  formCount?: number
+  fillableFields?: number
 }
 
-type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake'
+type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake' | 'fill-forms' | 'scan-forms' | 'save-profile' | 'preview-fill'
 
 type RuntimeMessage = {
   type: string
@@ -42,6 +44,42 @@ function detectPageType(): string {
   return 'general'
 }
 
+// Load formfiller dependencies
+async function loadFormFillerDependencies(): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  
+  // Check if dependencies are already loaded
+  if ((window as any).FormScanner && (window as any).FieldMatcher && (window as any).FormFiller) {
+    return true
+  }
+
+  try {
+    // Load utility scripts first
+    await loadScript('/skills/application-writing/utils/dom-utils.js')
+    await loadScript('/skills/application-writing/utils/fuzzy-match.js')
+    
+    // Load core formfiller scripts
+    await loadScript('/skills/application-writing/form-scanner.js')
+    await loadScript('/skills/application-writing/field-matcher.js')
+    await loadScript('/skills/application-writing/form-filler.js')
+    
+    return !!((window as any).FormScanner && (window as any).FieldMatcher && (window as any).FormFiller)
+  } catch (error) {
+    console.error('Failed to load formfiller dependencies:', error)
+    return false
+  }
+}
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = chrome.runtime.getURL(src)
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error(`Failed to load ${src}`))
+    document.head.appendChild(script)
+  })
+}
+
 function getPrimaryText(): string {
   const main = document.querySelector('main, article, [role="main"]')
   const source = main?.textContent ?? document.body.textContent ?? ''
@@ -49,6 +87,26 @@ function getPrimaryText(): string {
 }
 
 function buildPageContext(): PageContext {
+  const hasForms = Boolean(document.querySelector('form'))
+  let formCount = 0
+  let fillableFields = 0
+  
+  // If formfiller is available, get more accurate counts
+  if ((window as any).FormScanner) {
+    try {
+      const scanResult = (window as any).FormScanner.scan()
+      formCount = scanResult.fields.length
+      fillableFields = scanResult.visibleFields.length
+    } catch (e) {
+      // Fallback to basic detection
+      formCount = document.querySelectorAll('form').length
+      fillableFields = document.querySelectorAll('input:not([type="hidden"]), textarea, select').length
+    }
+  } else {
+    formCount = document.querySelectorAll('form').length
+    fillableFields = document.querySelectorAll('input:not([type="hidden"]), textarea, select').length
+  }
+
   return {
     url: window.location.href,
     domain: window.location.hostname,
@@ -56,15 +114,23 @@ function buildPageContext(): PageContext {
     title: document.title,
     type: detectPageType(),
     language: document.documentElement.lang || 'en',
-    hasForms: Boolean(document.querySelector('form')),
+    hasForms,
     hasButtons: Boolean(document.querySelector('button, input[type="button"], input[type="submit"]')),
     hasInputs: Boolean(document.querySelector('input, textarea, select')),
-    primaryText: getPrimaryText()
+    primaryText: getPrimaryText(),
+    formCount,
+    fillableFields
   }
 }
 
 function findHighlightTarget(command: PopupCommand): HTMLElement | null {
   if (command === 'highlight-forms') {
+    // Use formfiller for more precise highlighting if available
+    if ((window as any).FormScanner) {
+      const scanResult = (window as any).FormScanner.scan()
+      const firstField = scanResult.visibleFields[0]?.el
+      return firstField || document.querySelector('form, input, textarea, select') as HTMLElement | null
+    }
     return document.querySelector('form, input, textarea, select') as HTMLElement | null
   }
 
@@ -78,7 +144,7 @@ function findHighlightTarget(command: PopupCommand): HTMLElement | null {
 function summarizeContext(context: PageContext): string {
   const summaryParts = [
     `${context.title || 'This page'} looks like a ${context.type}.`,
-    context.hasForms ? 'I found forms you can act on.' : '',
+    context.hasForms ? `I found ${context.formCount || 'some'} form${(context.formCount || 0) !== 1 ? 's' : ''} with ${context.fillableFields || 'some'} fillable fields.` : '',
     context.hasButtons ? 'There are actionable controls on the page.' : '',
     context.primaryText ? `Preview: ${context.primaryText}` : ''
   ].filter(Boolean)
@@ -94,6 +160,17 @@ const CharacterRuntime: React.FC = () => {
   const [isShocked, setIsShocked] = React.useState(false)
   const [highlightTarget, setHighlightTarget] = React.useState<HTMLElement | null>(null)
   const [lastContext, setLastContext] = React.useState<PageContext>(() => buildPageContext())
+  const [formFillerLoaded, setFormFillerLoaded] = React.useState(false)
+
+  // Initialize formfiller dependencies
+  React.useEffect(() => {
+    loadFormFillerDependencies().then(loaded => {
+      setFormFillerLoaded(loaded)
+      if (loaded) {
+        console.log('FormFiller dependencies loaded successfully')
+      }
+    })
+  }, [])
 
   const refreshContext = React.useCallback(() => {
     const context = buildPageContext()
@@ -119,7 +196,7 @@ const CharacterRuntime: React.FC = () => {
     }
   }, [])
 
-  const runCommand = React.useCallback((command: PopupCommand) => {
+  const runCommand = React.useCallback(async (command: PopupCommand) => {
     if (command === 'sleep') {
       setMode('sleeping')
       setMessage('Sleeping. Wake me from the popup when you need me again.')
@@ -156,7 +233,7 @@ const CharacterRuntime: React.FC = () => {
     }
 
     if (command === 'highlight-forms') {
-      setMessage(target ? 'I highlighted the main form area for your decision.' : 'I could not find a form to highlight here.')
+      setMessage(target ? `I highlighted ${context.formCount || 'the'} form${(context.formCount || 0) !== 1 ? 's' : ''} for your decision.` : 'I could not find any forms to highlight here.')
       setIsShocked(!target)
       window.setTimeout(() => setIsShocked(false), 1200)
       return
@@ -166,8 +243,226 @@ const CharacterRuntime: React.FC = () => {
       setMessage(target ? 'I highlighted the main action controls on this page.' : 'I could not find obvious action controls here.')
       setIsShocked(!target)
       window.setTimeout(() => setIsShocked(false), 1200)
+      return
+    }
+
+    // New form filler commands
+    if (command === 'scan-forms') {
+      await handleScanForms()
+      return
+    }
+
+    if (command === 'fill-forms') {
+      await handleFillForms()
+      return
+    }
+
+    if (command === 'save-profile') {
+      await handleSaveProfile()
+      return
+    }
+
+    if (command === 'preview-fill') {
+      await handlePreviewFill()
+      return
     }
   }, [pulseMode, refreshContext])
+
+  // Form filler command handlers
+  const handleScanForms = React.useCallback(async () => {
+    if (!formFillerLoaded) {
+      setMessage('Form filler components are still loading. Please wait a moment.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Scanning forms with advanced analysis...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'scanForms',
+        data: {}
+      })
+
+      if (response && response.success && response.data) {
+        const { analysis, matches, profileAvailable, profileName } = response.data
+        const formCount = response.data.forms?.length || 0
+        
+        let message = `I found ${formCount} form${formCount !== 1 ? 's' : ''} on this page.`
+        
+        if (analysis?.formType) {
+          message += ` This looks like a ${analysis.formType.replace('_', ' ')}.`
+        }
+        
+        if (profileAvailable) {
+          message += ` I can fill ${matches?.length || 0} fields using your ${profileName} profile.`
+        } else {
+          message += ' Set up a profile to enable auto-filling.'
+        }
+
+        setMessage(message)
+        
+        // Highlight first form if available
+        if (response.data.forms?.length > 0) {
+          const firstField = response.data.scanResult?.visibleFields[0]?.el
+          if (firstField) {
+            setHighlightTarget(firstField)
+          }
+        }
+      } else {
+        setMessage(response?.error || 'Form scan failed. Please try again.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      console.error('Scan forms error:', error)
+      setMessage('Failed to scan forms. Please check if the extension is properly loaded.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 2000)
+  }, [formFillerLoaded])
+
+  const handleFillForms = React.useCallback(async () => {
+    if (!formFillerLoaded) {
+      setMessage('Form filler components are still loading. Please wait a moment.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setMessage('Filling forms with your profile data...')
+    
+    // Show eating expression while filling
+    const originalBusy = isBusy
+    setIsBusy(false)  // Will be set to true by eating
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'fillForms',
+        data: { generateContent: true }
+      })
+
+      if (response.success && response.data) {
+        const { filled, total, message: fillMessage } = response.data
+        
+        if (filled > 0) {
+          setMessage(`Successfully filled ${filled} of ${total} fields! ${fillMessage || ''}`)
+          // Show happy expression briefly
+          window.setTimeout(() => {
+            setIsBusy(false)
+            setMode('awake')
+            window.setTimeout(() => setMode('idle'), 2000)
+          }, 1000)
+        } else {
+          setMessage('No fields could be filled. Check your profile or try manual filling.')
+          setIsShocked(true)
+        }
+      } else {
+        setMessage(response.error || 'Form filling failed. Please update your profile.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to fill forms. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 3000)
+  }, [formFillerLoaded, isBusy])
+
+  const handleSaveProfile = React.useCallback(async () => {
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Extracting form data to create profile...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'createProfileFromForm',
+        data: { profileName: `Profile from ${window.location.hostname}` }
+      })
+
+      if (response.success && response.data) {
+        setMessage('Profile created successfully! You can now use it for form filling.')
+        // Show happy expression
+        setMode('awake')
+        window.setTimeout(() => setMode('idle'), 2000)
+      } else {
+        setMessage(response.error || 'Failed to create profile. Make sure there are filled fields on the page.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to create profile. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 2000)
+  }, [])
+
+  const handlePreviewFill = React.useCallback(async () => {
+    if (!formFillerLoaded) {
+      setMessage('Form filler components are still loading. Please wait a moment.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Analyzing what I can fill...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'previewFill',
+        data: {}
+      })
+
+      if (response.success && response.data) {
+        const { matches, total } = response.data
+        
+        if (total > 0) {
+          const preview = matches.slice(0, 3).map((m: any) => 
+            `${m.field}: ${m.value}`
+          ).join(', ')
+          
+          setMessage(`I can fill ${total} fields. Preview: ${preview}${total > 3 ? '...' : ''}`)
+        } else {
+          setMessage('No matching fields found for your current profile.')
+          setIsShocked(true)
+        }
+      } else {
+        setMessage(response.error || 'Preview failed. Please check your profile.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to preview fill. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 2000)
+  }, [formFillerLoaded])
 
   React.useEffect(() => {
     const handleRuntimeMessage = (message: RuntimeMessage) => {
@@ -219,7 +514,13 @@ const CharacterRuntime: React.FC = () => {
           return
         }
 
-        setMessage(summarizeContext(lastContext))
+        const context = lastContext
+        if (context.hasForms && formFillerLoaded) {
+          setMessage(`I found ${context.formCount || 'forms'} on this page. I can help you fill them!`)
+        } else {
+          setMessage(summarizeContext(context))
+        }
+        
         setMode('awake')
         window.setTimeout(() => setMode('idle'), 1800)
       }}

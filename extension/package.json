@@ -1,0 +1,31 @@
+{
+  "name": "ai-bot-extension",
+  "version": "1.0.0",
+  "description": "Comprehensive AI assistant Chrome extension with 15+ specialized skills",
+  "main": "build-extension.js",
+  "scripts": {
+    "build": "node build-extension.js",
+    "build:ui": "cd ui && npm run build",
+    "build:all": "npm run build:ui && npm run build",
+    "build:icons": "node create-character-icons.js",
+    "package": "node package-crx.js",
+    "package:install": "npm install archiver",
+    "dev": "npm run build:all && echo 'Load build/ directory as unpacked extension in Chrome DevTools'",
+    "clean": "node -e \"const fs=require('fs');['build','dist-crx'].forEach(d=>fs.existsSync(d)&&fs.rmSync(d,{recursive:true,force:true})); console.log('✅ Cleaned build directories')\""
+  },
+  "devDependencies": {
+    "archiver": "^6.0.1",
+    "sharp": "^0.33.2"
+  },
+  "keywords": [
+    "chrome-extension",
+    "ai-assistant",
+    "productivity",
+    "automation",
+    "background-tasks",
+    "mail-management",
+    "content-creation"
+  ],
+  "author": "AI Bot Extension Team",
+  "license": "MIT"
+}

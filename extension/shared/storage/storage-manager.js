@@ -112,7 +112,7 @@ class IndexedDBManager {
   }
 }
 
-class UnifiedStorageManager {
+class StorageManager {
   constructor() {
     this.chromeStorage = chrome.storage.local;
     this.syncStorage = chrome.storage.sync;
@@ -549,4 +549,7 @@ class UnifiedStorageManager {
   }
 }
 
-export { UnifiedStorageManager };
+// Backwards compatibility alias
+const UnifiedStorageManager = StorageManager;
+
+export { StorageManager, UnifiedStorageManager };

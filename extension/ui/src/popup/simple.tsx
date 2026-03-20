@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import SuyaBot, { SuyaMode } from '@/components/SuyaBot';
 
-type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake';
+type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake' | 'fill-forms' | 'scan-forms' | 'save-profile' | 'preview-fill';
 
 const sendCommandToActiveTab = async (command: PopupCommand) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -37,6 +37,22 @@ const SimplePopup: React.FC = () => {
 
       if (command === 'highlight-buttons') {
         setStatusMessage('Highlighting primary actions on the current page.');
+      }
+
+      if (command === 'scan-forms') {
+        setStatusMessage('Suya is scanning forms with advanced analysis...');
+      }
+
+      if (command === 'fill-forms') {
+        setStatusMessage('Suya is filling forms with your profile data...');
+      }
+
+      if (command === 'save-profile') {
+        setStatusMessage('Suya is creating a profile from current form data...');
+      }
+
+      if (command === 'preview-fill') {
+        setStatusMessage('Suya is analyzing what can be filled...');
       }
 
       if (command === 'sleep') {
@@ -104,6 +120,10 @@ const SimplePopup: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         {[
           ['Analyze page', 'analyze-page'],
+          ['Scan forms', 'scan-forms'],
+          ['Fill forms', 'fill-forms'],
+          ['Preview fill', 'preview-fill'],
+          ['Save profile', 'save-profile'],
           ['Highlight forms', 'highlight-forms'],
           ['Highlight actions', 'highlight-buttons'],
           [mode === 'sleeping' ? 'Wake Suya' : 'Sleep Suya', mode === 'sleeping' ? 'wake' : 'sleep']
@@ -119,7 +139,7 @@ const SimplePopup: React.FC = () => {
               color: '#66351a',
               fontSize: '12px',
               fontWeight: 600,
-              cursor: 'pointer'
+              cursor: command === 'fill-forms' || command === 'scan-forms' ? 'pointer' : 'pointer'
             }}
           >
             {label}

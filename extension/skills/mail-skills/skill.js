@@ -52,7 +52,8 @@ class MailSkillsSkill {
   }
 
   detectMailProvider() {
-    const url = window.location.href;
+    const win = typeof window !== 'undefined' ? window : null;
+    const url = win ? win.location.href : '';
     
     if (url.includes('mail.google.com')) {
       this.currentProvider = 'gmail';

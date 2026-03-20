@@ -268,6 +268,14 @@ Check logs in:
 4. Update documentation
 5. Submit pull request
 
+## Gotchas/Todos
+ - Figure out how robust strategy to handle DOM changes/stale dom
+ - Figure out how to handle voice recognition/recording failures painlessly
+ - Add skill to work as a meeting assistant/note taker, pull in occassional helpful information as tips while meeting is ongoing
+ - Add a 'shrinked' mode where only the antenae is visible and the other parts fade out or become nearly transparent
+ - Dragging effects should always move or shrink the bot out of the way with an recovery time of 1 hour unless clicked/hovered on again
+
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
