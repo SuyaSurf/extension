@@ -1,0 +1,403 @@
+/* Suya Bot Styles - Translucent overlays with intelligent positioning */
+
+.suya-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  backdrop-filter: none;
+  z-index: 9998;
+  pointer-events: none;
+  opacity: 0;
+  transition: background 0.3s ease, backdrop-filter 0.3s ease, opacity 0.3s ease;
+}
+
+.suya-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+  background: rgba(18, 8, 2, 0.26);
+  backdrop-filter: blur(2px);
+}
+
+/* Suya Bot - Minimized mode */
+.suya-bot {
+  width: 58px;
+  height: 58px;
+  position: fixed;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), box-shadow 0.22s ease, opacity 0.22s ease;
+  box-shadow: 0 6px 18px rgba(133, 50, 4, 0.24);
+  color: #333;
+  font-size: 24px;
+  animation: float 4.5s ease-in-out infinite;
+  transform-origin: center bottom;
+  overflow: visible;
+}
+
+.suya-bot:hover {
+  transform: scale(1.08) translateY(-1px);
+  box-shadow: 0 10px 28px rgba(133, 50, 4, 0.34);
+}
+
+.suya-bot.active {
+  animation: awakePulse 2.4s ease-in-out infinite;
+}
+
+.suya-bot.busy {
+  animation: chomp 0.72s ease-in-out infinite;
+ }
+
+.suya-bot.listening {
+  animation: listeningBreath 3.2s ease-in-out infinite;
+}
+
+.suya-bot.shocked {
+  animation: shockVib 0.1s linear infinite;
+}
+
+.suya-bot.thinking-hard {
+  animation: thinkPulse 1.4s ease-in-out infinite;
+}
+
+.suya-bot.sleeping {
+  animation: sleepFloat 5.8s ease-in-out infinite;
+  opacity: 0.92;
+}
+
+.suya-bot.idle {
+  opacity: 0.96;
+}
+
+.suya-bot svg {
+  display: block;
+}
+
+.suya-hand {
+  position: absolute;
+  width: 11px;
+  height: 15px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f7c48c 0%, #db9356 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 1px 3px rgba(67, 22, 0, 0.25);
+  z-index: 2;
+}
+
+.suya-hand::after {
+  content: '';
+  position: absolute;
+  inset: auto 2px 1px 2px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(126, 61, 21, 0.24);
+}
+
+.suya-hand.left {
+  left: 10px;
+}
+
+.suya-hand.right {
+  right: 10px;
+}
+
+.suya-hand.shocked.left {
+  top: 26px;
+  transform: rotate(26deg);
+}
+
+.suya-hand.shocked.right {
+  top: 26px;
+  transform: rotate(-26deg);
+}
+
+.suya-hand.eating.left {
+  top: 29px;
+  left: 8px;
+  transform: rotate(38deg);
+}
+
+.suya-hand.eating.right {
+  top: 24px;
+  right: 6px;
+  width: 14px;
+  height: 18px;
+  transform: rotate(-32deg);
+}
+
+.suya-hand-skewer {
+  position: absolute;
+  top: -10px;
+  right: -9px;
+  width: 24px;
+  height: 28px;
+  transform: rotate(-18deg);
+}
+
+.suya-hand-skewer .stick {
+  position: absolute;
+  left: 11px;
+  top: 1px;
+  width: 2px;
+  height: 25px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #7a4825 0%, #4e2810 100%);
+}
+
+.suya-hand-skewer .meat {
+  position: absolute;
+  left: 6px;
+  width: 11px;
+  height: 7px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #d46838 0%, #8b2010 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 210, 130, 0.28);
+}
+
+.suya-hand-skewer .meat-1 {
+  top: 5px;
+}
+
+.suya-hand-skewer .meat-2 {
+  top: 14px;
+}
+
+.suya-bot.busy .suya-hand.eating.right {
+  animation: nibbleHand 0.72s ease-in-out infinite;
+}
+
+.suya-bot.shocked .suya-hand.shocked {
+  animation: coverMouth 0.22s ease-in-out infinite alternate;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30% { transform: translateY(-7px) rotate(-2deg); }
+  65% { transform: translateY(-3px) rotate(1.5deg); }
+}
+
+/* Pulse animation for busy state */
+@keyframes awakePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes chomp {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.07) rotate(-4deg); }
+  75% { transform: scale(1.05) rotate(3.5deg); }
+}
+
+@keyframes shockVib {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-2px, 1px) rotate(-1.5deg); }
+  75% { transform: translate(2px, -1px) rotate(1.5deg); }
+}
+
+@keyframes thinkPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04) rotate(1deg); }
+}
+
+@keyframes listeningBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes sleepFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes nibbleHand {
+  0%, 100% { transform: rotate(-32deg) translateY(0); }
+  50% { transform: rotate(-26deg) translateY(-3px); }
+}
+
+@keyframes coverMouth {
+  from { transform: translateY(0) rotate(var(--hand-rot, 0deg)); }
+  to { transform: translateY(-1px) rotate(var(--hand-rot, 0deg)); }
+}
+
+/* Sophisticated bubble messages */
+.suya-bubble {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 200px;
+  max-width: 300px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.9) 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: bubbleIn 0.3s ease-out;
+  z-index: 10000;
+}
+
+.bubble-content {
+  color: #333;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.bubble-tail {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid rgba(248, 249, 250, 0.9);
+}
+
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Stylish vignette frames for highlighting */
+.suya-highlight {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9997;
+}
+
+.suya-highlight-wrapper {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9997;
+}
+
+.vignette-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 70%,
+    rgba(102, 126, 234, 0.3) 80%,
+    rgba(102, 126, 234, 0.6) 90%,
+    rgba(102, 126, 234, 0.8) 100%
+  );
+  animation: vignettePulse 2s ease-in-out infinite;
+  box-shadow: 
+    0 0 0 2px rgba(102, 126, 234, 0.4),
+    0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+@keyframes vignettePulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* Suya sticks animation when busy */
+.suya-sticks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 4px;
+  z-index: 9999;
+}
+
+.stick {
+  width: 3px;
+  height: 20px;
+  background: linear-gradient(to bottom, #8B4513, #D2691E);
+  border-radius: 2px;
+  animation: eatStick 2s ease-in-out infinite;
+}
+
+.stick-1 { animation-delay: 0s; }
+.stick-2 { animation-delay: 0.3s; }
+.stick-3 { animation-delay: 0.6s; }
+
+@keyframes eatStick {
+  0%, 100% { 
+    transform: translateY(0) scaleY(1); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: translateY(-5px) scaleY(0.8); 
+    opacity: 0.7; 
+  }
+  80% { 
+    transform: translateY(10px) scaleY(0.6); 
+    opacity: 0.3; 
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .suya-bot {
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
+  
+  .suya-bubble {
+    min-width: 160px;
+    max-width: 250px;
+    padding: 12px 16px;
+  }
+  
+  .bubble-content {
+    font-size: 13px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .suya-bubble {
+    background: linear-gradient(135deg, rgba(30, 30, 30, 0.95) 0%, rgba(20, 20, 20, 0.9) 100%);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .bubble-content {
+    color: #fff;
+  }
+  
+  .bubble-tail {
+    border-top-color: rgba(20, 20, 20, 0.9);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .suya-bot,
+  .suya-bubble,
+  .vignette-frame,
+  .stick,
+  .suya-hand {
+    animation: none;
+  }
+  
+  .suya-overlay {
+    transition: none;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.suya-bot:focus {
+  outline: 2px solid rgba(102, 126, 234, 0.6);
+  outline-offset: 2px;
+}

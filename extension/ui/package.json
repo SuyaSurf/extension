@@ -1,0 +1,43 @@
+{
+  "name": "ai-extension-ui",
+  "version": "1.0.0",
+  "description": "UI components for AI Bot Extension",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-switch": "^1.0.3",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-toast": "^1.1.5",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    "lucide-react": "^0.294.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/chrome": "^0.0.251",
+    "typescript": "^5.2.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "ts-loader": "^9.5.1",
+    "css-loader": "^6.8.1",
+    "style-loader": "^3.3.3",
+    "postcss": "^8.4.31",
+    "postcss-loader": "^7.3.3",
+    "tailwindcss": "^3.3.5",
+    "autoprefixer": "^10.4.16",
+    "html-webpack-plugin": "^5.5.3"
+  }
+}

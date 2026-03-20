@@ -1,0 +1,304 @@
+/* =====================================================
+   SUYA BOT — Soulful Edition
+   Compact. Expressive. Speedy.
+   ===================================================== */
+
+:root {
+  --suya-fire:       #FF6B1A;
+  --suya-amber:      #FFAB40;
+  --suya-listen:     #4AB8E8;
+  --whoosh-dur:      420ms;
+}
+
+/* =====================================================
+   OVERLAY
+   ===================================================== */
+.suya-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  transition: background 0.4s ease, backdrop-filter 0.4s ease;
+}
+.suya-overlay.active {
+  pointer-events: auto;
+  background: rgba(14, 5, 1, 0.5);
+  backdrop-filter: blur(5px) saturate(0.7);
+}
+
+/* =====================================================
+   BOT SHELL
+   ===================================================== */
+.suya-bot {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: fixed;
+  z-index: 9999;
+  background: radial-gradient(
+    ellipse at 38% 32%,
+    #FFC870 0%, #FF8C35 30%, #E0580A 65%, #B33F00 100%
+  );
+  box-shadow:
+    0 0 0 2px rgba(255, 200, 100, 0.32),
+    0 0 0 5px rgba(255, 107, 26, 0.12),
+    0 6px 22px rgba(180, 60, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.22);
+  animation: suyaFloat 5s ease-in-out infinite;
+  transition:
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.28s ease;
+  transform-origin: center bottom;
+  overflow: visible;
+}
+
+.suya-bot:hover {
+  transform: scale(1.12) translateY(-2px) !important;
+  box-shadow:
+    0 0 0 2.5px rgba(255, 200, 100, 0.5),
+    0 0 0 7px rgba(255, 107, 26, 0.18),
+    0 10px 34px rgba(180, 60, 0, 0.55),
+    inset 0 1px 2px rgba(255, 255, 255, 0.28);
+}
+.suya-bot:focus-visible { outline: 3px solid var(--suya-amber); outline-offset: 4px; }
+
+.suya-bot.active {
+  background: radial-gradient(ellipse at 38% 32%, #FFE299 0%, #FFAA4A 30%, #FF7020 65%, #CC5500 100%);
+  animation: suyaActivePulse 2.5s ease-in-out infinite;
+}
+.suya-bot.busy    { animation: suyaChomp 0.72s ease-in-out infinite; }
+.suya-bot.listening {
+  background: radial-gradient(ellipse at 38% 32%, #A8DCFF 0%, #5CB8F0 30%, #2884C8 65%, #1260A8 100%);
+  animation: suyaListenBreath 3.2s ease-in-out infinite;
+}
+.suya-bot.shocked {
+  animation: suyaShockVibrate 0.1s linear infinite;
+  background: radial-gradient(ellipse at 38% 32%, #FFEE66 0%, #FFD020 30%, #FFA500 65%, #E07000 100%);
+  box-shadow:
+    0 0 0 3px rgba(255, 230, 60, 0.9),
+    0 0 0 8px rgba(255, 210, 0, 0.3),
+    0 6px 28px rgba(200, 120, 0, 0.5),
+    0 0 60px rgba(255, 220, 0, 0.25);
+}
+.suya-bot.thinking-hard {
+  animation: suyaThinkPulse 1.4s ease-in-out infinite;
+}
+
+/* =====================================================
+   WHOOSH
+   ===================================================== */
+.suya-bot.whoosh-out {
+  animation: whooshOut var(--whoosh-dur) cubic-bezier(0.4, 0, 0.8, 0.2) forwards !important;
+}
+.suya-bot.whoosh-in {
+  animation: whooshIn calc(var(--whoosh-dur) * 0.85) cubic-bezier(0.2, 0.8, 0.4, 1.4) forwards !important;
+}
+
+@keyframes whooshOut {
+  0%   { transform: scale(1); opacity: 1; filter: blur(0); }
+  18%  { transform: scaleX(0.55) scaleY(1.25); opacity: 1; }
+  55%  { transform: scaleX(3.2) scaleY(0.28); opacity: 0.55; filter: blur(5px); }
+  100% { transform: scaleX(4.2) scaleY(0.14); opacity: 0; filter: blur(9px); }
+}
+@keyframes whooshIn {
+  0%   { transform: scaleX(3.8) scaleY(0.16); opacity: 0; filter: blur(9px); }
+  35%  { transform: scaleX(0.62) scaleY(1.38); opacity: 1; filter: blur(1px); }
+  58%  { transform: scaleX(1.2) scaleY(0.8); filter: blur(0); }
+  74%  { transform: scaleX(0.91) scaleY(1.09); }
+  87%  { transform: scaleX(1.04) scaleY(0.97); }
+  100% { transform: scale(1); }
+}
+
+.suya-speed-trail {
+  position: fixed;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 160, 60, 0.65) 0%, rgba(255, 100, 20, 0) 70%);
+  pointer-events: none;
+  z-index: 9997;
+  animation: trailFade 360ms ease-out forwards;
+}
+.suya-speed-trail.t1 { width: 60px; height: 60px; animation-delay: 0ms; }
+.suya-speed-trail.t2 { width: 46px; height: 46px; animation-delay: 35ms; opacity: 0.55; }
+.suya-speed-trail.t3 { width: 32px; height: 32px; animation-delay: 75ms; opacity: 0.32; }
+
+@keyframes trailFade {
+  0%   { opacity: inherit; transform: scale(1); }
+  100% { opacity: 0; transform: scaleX(3.5) scaleY(0.4); }
+}
+
+.suya-speed-line {
+  position: fixed;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 185, 60, 0.95) 0%, rgba(255, 100, 20, 0) 100%);
+  pointer-events: none;
+  z-index: 9997;
+  transform-origin: left center;
+  animation: speedLineAnim var(--whoosh-dur) ease-out forwards;
+}
+@keyframes speedLineAnim {
+  0%   { transform: scaleX(0); opacity: 1; }
+  38%  { transform: scaleX(1); opacity: 0.9; }
+  100% { transform: scaleX(1.15); opacity: 0; }
+}
+
+/* =====================================================
+   KEYFRAMES
+   ===================================================== */
+@keyframes suyaFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  28%       { transform: translateY(-9px) rotate(-2deg); }
+  60%       { transform: translateY(-4px) rotate(1.5deg); }
+  80%       { transform: translateY(-11px) rotate(-1deg); }
+}
+@keyframes suyaActivePulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.06); }
+}
+@keyframes suyaChomp {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  22%       { transform: scale(1.07) rotate(-4deg); }
+  55%       { transform: scale(1.05) rotate(3.5deg); }
+}
+@keyframes suyaListenBreath {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+@keyframes suyaShockVibrate {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25%       { transform: translate(-2px, 1px) rotate(-1.5deg); }
+  50%       { transform: translate(2px, -1px) rotate(1.5deg); }
+  75%       { transform: translate(-1px, 2px) rotate(-1deg); }
+}
+@keyframes suyaThinkPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.04) rotate(1deg); }
+}
+
+/* =====================================================
+   LISTEN RINGS
+   ===================================================== */
+.listen-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid var(--suya-listen);
+  animation: listenPing 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+  pointer-events: none;
+}
+.ring-1 { animation-delay: 0s; }
+.ring-2 { animation-delay: 0.75s; opacity: 0.55; }
+.ring-3 { animation-delay: 1.5s;  opacity: 0.3; }
+@keyframes listenPing {
+  0%   { transform: scale(1);   opacity: inherit; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+
+/* =====================================================
+   SUYA GRILL (busy)
+   ===================================================== */
+.suya-grill {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; align-items: flex-end; gap: 18px;
+  z-index: 10001; pointer-events: none;
+  filter: drop-shadow(0 8px 18px rgba(180, 50, 10, 0.6));
+}
+.suya-skewer { display: block; }
+.skewer-1 { animation: skewerRise 2.6s cubic-bezier(0.4,0,0.6,1) infinite 0s; }
+.skewer-2 { animation: skewerRise 2.6s cubic-bezier(0.4,0,0.6,1) infinite 0.52s; }
+.skewer-3 { animation: skewerRise 2.6s cubic-bezier(0.4,0,0.6,1) infinite 1.04s; }
+@keyframes skewerRise {
+  0%   { transform: translateY(36px); opacity: 0; }
+  6%   { opacity: 1; }
+  72%  { transform: translateY(-44px); opacity: 1; }
+  86%  { transform: translateY(-60px); opacity: 0; }
+  87%, 100% { transform: translateY(36px); opacity: 0; }
+}
+.meat-piece { transform-origin: center; }
+.piece-0 { animation: meatBite 2.6s ease-in-out infinite 0.5s; }
+.piece-1 { animation: meatBite 2.6s ease-in-out infinite 0.82s; }
+.piece-2 { animation: meatBite 2.6s ease-in-out infinite 1.14s; }
+.piece-3 { animation: meatBite 2.6s ease-in-out infinite 1.46s; }
+@keyframes meatBite {
+  0%, 28%  { opacity: 1; transform: scale(1); }
+  48%       { opacity: 0.5; transform: scale(0.82) scaleX(0.7); }
+  62%, 100% { opacity: 0; transform: scale(0.28) scaleX(0.22); }
+}
+
+/* =====================================================
+   BUBBLE
+   ===================================================== */
+.suya-bubble {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 230px; max-width: 340px;
+  padding: 16px 20px 16px 16px;
+  display: flex; align-items: flex-start; gap: 11px;
+  background: linear-gradient(145deg, rgba(255,252,242,.97) 0%, rgba(255,245,220,.95) 100%);
+  backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid rgba(255, 185, 90, 0.32);
+  border-radius: 22px;
+  box-shadow: 0 10px 50px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.65) inset;
+  animation: bubbleSpring 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  z-index: 10002; pointer-events: auto;
+}
+.bubble-top-accent {
+  position: absolute; top: 0; left: 18px; right: 18px; height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,160,60,.55) 30%, rgba(255,200,80,.7) 50%, rgba(255,160,60,.55) 70%, transparent);
+}
+.bubble-icon { font-size: 20px; flex-shrink: 0; line-height: 1; margin-top: 1px; }
+.bubble-content { font-size: 13.5px; line-height: 1.55; color: #2E1408; font-weight: 500; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; }
+.bubble-tail { position: absolute; bottom: -10px; left: 32px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid rgba(255,245,220,.97); }
+@keyframes bubbleSpring {
+  from { opacity: 0; transform: translate(-50%,-50%) scale(0.68) translateY(14px); }
+  to   { opacity: 1; transform: translate(-50%,-50%) scale(1) translateY(0); }
+}
+
+/* =====================================================
+   VIGNETTE HIGHLIGHT
+   ===================================================== */
+.suya-highlight-wrapper { position: absolute; pointer-events: none; z-index: 9999; border-radius: 14px; overflow: visible; }
+.vignette-frame {
+  position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: 0 0 0 2.5px rgba(255,165,40,.9), 0 0 0 6px rgba(255,140,20,.4), 0 0 44px rgba(255,140,0,.52), 0 0 90px rgba(255,100,0,.24);
+  background: radial-gradient(ellipse at center, rgba(255,200,80,.05) 0%, transparent 65%);
+  animation: vigBreath 1.8s ease-in-out infinite;
+}
+.vignette-frame::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,200,100,0) 0%, rgba(255,200,100,.17) 48%, rgba(255,200,100,0) 100%);
+  animation: scanSweep 2.1s ease-in-out infinite;
+}
+@keyframes vigBreath {
+  0%,100% { box-shadow: 0 0 0 2.5px rgba(255,165,40,.9), 0 0 0 6px rgba(255,140,20,.4), 0 0 44px rgba(255,140,0,.52); }
+  50%      { box-shadow: 0 0 0 3.5px rgba(255,200,60,1), 0 0 0 9px rgba(255,160,30,.5), 0 0 70px rgba(255,160,0,.7); }
+}
+@keyframes scanSweep {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(100%);  opacity: 0; }
+}
+
+/* =====================================================
+   DARK MODE
+   ===================================================== */
+@media (prefers-color-scheme: dark) {
+  .suya-bubble { background: linear-gradient(145deg, rgba(25,12,3,.97) 0%, rgba(18,8,2,.95) 100%); border-color: rgba(255,150,60,.28); }
+  .bubble-content { color: #FFD9A8; }
+  .bubble-tail { border-top-color: rgba(18,8,2,.97); }
+}
+
+@media (max-width: 768px) { .suya-bot { width: 54px; height: 54px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .suya-bot, .suya-skewer, .meat-piece, .listen-ring,
+  .vignette-frame, .vignette-frame::after, .suya-bubble,
+  .suya-speed-trail, .suya-speed-line { animation: none !important; transition: none !important; }
+}
