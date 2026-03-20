@@ -92,7 +92,7 @@ const SimplePopup: React.FC = () => {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div style={{ position: 'relative', width: '58px', height: '58px' }}>
+        <div style={{ position: 'relative', width: '32px', height: '32px', transform: 'scale(0.75)', transformOrigin: 'top left' }}>
           <SuyaBot mode={mode} isBusy={isBusy} message={undefined} fixedPosition={{ x: 0, y: 0, corner: 'top-left' }} />
         </div>
         <div>

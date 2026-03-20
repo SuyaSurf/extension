@@ -35,35 +35,41 @@ The main character UI component with these props:
 
 ```tsx
 interface SuyaBotProps {
-  isActive?: boolean;           // Active/engaged state
-  isBusy?: boolean;             // Working/processing
-  isListening?: boolean;       // Voice input mode
-  isShocked?: boolean;          // Surprise/error state
-  isThinkingHard?: boolean;    // Deep processing
-  mode?: SuyaMode;             // 'awake' | 'idle' | 'sleeping'
-  message?: string;             // Bubble message text
-  onInteraction?: () => void;  // Click/tap handler
-  highlightTarget?: HTMLElement | null; // Element to highlight
-  fixedPosition?: Position;     // Override auto-positioning
+  mode?:           SuyaMode;             // 'awake' | 'idle' | 'sleeping' | 'offline' | 'bored'
+  isActive?:       boolean;              // Active/engaged state
+  isBusy?:         boolean;              // Working/processing (eating animation)
+  isListening?:    boolean;              // Voice input mode (owl eyes + rings)
+  isShocked?:      boolean;              // Surprise/error state (hands covering face)
+  isThinkingHard?: boolean;              // Deep processing (intense focus + steam)
+  message?:        string;               // Bubble message text
+  onInteraction?:  () => void;           // Click/tap handler
+  highlightTarget?: HTMLElement | null;  // Element to highlight with vignette
+  fixedPosition?:  Position;             // Override auto-positioning (for onboarding/demos)
 }
+
+type Position = { x: number; y: number; corner: Corner };
+type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 ```
 
 #### Visual Modes
 
-- **awake**: Character is alert and responsive
-- **idle**: Default resting state, slightly subdued
-- **sleeping**: Closed eyes, reduced opacity, 'Z' effect
+- **awake**: Character is alert and responsive, full color
+- **idle**: Default resting state, pupils slightly down, subdued
+- **sleeping**: Closed eyes, pale skin, sleep orb, floating 'Z' particles
+- **offline**: Greyscale, X eyes, no-signal icon
+- **bored**: Glazed sideways stare, flat brows, frown, sweat drop
 
-#### Expressions
+#### Expressions (Auto-selected based on props)
 
-- **neutral**: Default face
-- **happy**: Engaged/positive state
-- **thinking**: Light processing
-- **eating**: Busy with hands+skewer animation
-- **listening**: Voice input mode with rings
-- **thinking_hard**: Deep processing with sweat drops
-- **shocked**: Error/surprise with hands covering mouth
-- **sleeping**: Closed eyes with 'Z' effect
+- **neutral**: Default face, normal eyes and brows
+- **happy**: Squinting joy arcs, raised brows, big smile, blush, sparkle
+- **thinking**: One pupil shifted, raised right brow, thought bubbles
+- **thinking_hard**: Focus iris (orange), heavy squinting, V-brows, gritted teeth, steam lines
+- **eating**: Squeezed-shut bliss eyes, skewer with 3 meat chunks animating toward mouth, puffed cheek, hand holding stick
+- **listening**: Huge owl eyes with cyan iris, listen rings pulsing outward, small O mouth
+- **shocked**: Wide yellow-iris eyes, hands spring up to cover face, raised brows, shock stars
+
+**Note**: Expressions are automatically selected based on state props. Modes (sleeping/offline/idle/bored) override expression selection.
 
 ### 2. Content Script Runtime
 

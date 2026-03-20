@@ -24,6 +24,7 @@ export interface SuyaBotProps {
   message?:        string;
   onInteraction?:  () => void;
   highlightTarget?: HTMLElement | null;
+  fixedPosition?:  Position;
 }
 
 /* =====================================================
@@ -488,6 +489,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   message,
   onInteraction,
   highlightTarget,
+  fixedPosition,
 }) => {
   const uid = useRef(`sb${++_uid}`).current;
   const [pos,       setPos]    = useState<Position>({ x: 20, y: 20, corner: 'bottom-right' });
@@ -521,12 +523,17 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   }, []);
 
   useEffect(() => {
+    if (fixedPosition) {
+      setPos(fixedPosition);
+      prevPos.current = fixedPosition;
+      return;
+    }
     const p = findOptimal();
     setPos(p); prevPos.current = p;
     const onResize = () => { const next = findOptimal(); triggerWhoosh(prevPos.current!, next); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [findOptimal]);
+  }, [findOptimal, fixedPosition]);
 
   const triggerWhoosh = (from: Position, to: Position) => {
     if (from.x === to.x && from.y === to.y) { setPos(to); return; }

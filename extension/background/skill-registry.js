@@ -9,10 +9,7 @@ import { MailSkillsSkill } from '../skills/mail-skills/skill.js';
 import { VideoGenerationSkill } from '../skills/video-generation/skill.js';
 import { AudioGenerationSkill } from '../skills/audio-generation/skill.js';
 import { ChatSkillsSkill } from '../skills/chat-skills/skill.js';
-import { ApplicationWritingSkill } from '../skills/application-writing/skill.js';
-import { DocumentSkillsSkill } from '../skills/document-skills/skill.js';
 import { QATestingSkill } from '../skills/qa-testing/skill.js';
-import { UIAssistantSkill } from '../skills/ui-assistant/skill.js';
 
 class SkillRegistry {
   constructor() {
@@ -23,9 +20,15 @@ class SkillRegistry {
     this.loadOrder = [];
   }
 
+  isDOMAvailable() {
+    return typeof window !== 'undefined' && typeof document !== 'undefined';
+  }
+
   async registerSkill(skillClass, config = {}) {
     try {
-      const skillName = skillClass.name.replace('Skill', '').toLowerCase();
+      const configuredName = typeof config.name === 'string' ? config.name : null;
+      const fallbackName = skillClass.name.replace('Skill', '').toLowerCase();
+      const skillName = configuredName || fallbackName;
       
       // Check if skill is already registered
       if (this.skills.has(skillName)) {
@@ -35,8 +38,8 @@ class SkillRegistry {
       
       // Create skill instance
       const skill = new skillClass({
-        name: skillName,
-        ...config
+        ...config,
+        name: skillName
       });
       
       // Initialize skill
@@ -66,9 +69,22 @@ class SkillRegistry {
 
   async registerAllSkills() {
     console.log('Registering all skills...');
+
+    const domAvailable = this.isDOMAvailable();
+
+    // DOM-dependent skills must not be imported in MV3 service worker context.
+    // We load them dynamically only when window/document exist (content-script/page).
+    const {
+      ApplicationWritingSkill,
+      DocumentSkillsSkill,
+      UIAssistantSkill,
+    } = domAvailable
+      ? await this.loadDomSkills()
+      : { ApplicationWritingSkill: null, DocumentSkillsSkill: null, UIAssistantSkill: null };
     
     const skillConfigs = [
       { 
+        name: 'background-tasks',
         class: BackgroundTasksSkill, 
         autoActivate: true,
         priority: 1,
@@ -79,6 +95,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'server-skills',
         class: ServerSkillsSkill, 
         autoActivate: true,
         priority: 2,
@@ -92,6 +109,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'mail-skills',
         class: MailSkillsSkill, 
         autoActivate: false,
         priority: 3,
@@ -102,6 +120,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'video-generation',
         class: VideoGenerationSkill, 
         autoActivate: false,
         priority: 4,
@@ -112,6 +131,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'audio-generation',
         class: AudioGenerationSkill, 
         autoActivate: false,
         priority: 5,
@@ -122,6 +142,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'chat-skills',
         class: ChatSkillsSkill, 
         autoActivate: false,
         priority: 6,
@@ -130,7 +151,8 @@ class SkillRegistry {
           messageHistorySize: 1000
         }
       },
-      { 
+      {
+        name: 'application-writing',
         class: ApplicationWritingSkill, 
         autoActivate: true,
         priority: 7,
@@ -142,7 +164,8 @@ class SkillRegistry {
           serverEndpoint: 'https://api.suya.example.com'
         }
       },
-      { 
+      {
+        name: 'document-skills',
         class: DocumentSkillsSkill, 
         autoActivate: false,
         priority: 8,
@@ -153,6 +176,7 @@ class SkillRegistry {
         }
       },
       { 
+        name: 'qa-testing',
         class: QATestingSkill, 
         autoActivate: false,
         priority: 9,
@@ -162,7 +186,8 @@ class SkillRegistry {
           performanceMonitoringEnabled: true
         }
       },
-      { 
+      {
+        name: 'ui-assistant',
         class: UIAssistantSkill, 
         autoActivate: true,
         priority: 10,
@@ -180,14 +205,36 @@ class SkillRegistry {
     // Register skills in priority order
     for (const config of skillConfigs) {
       try {
+        // In MV3 service worker context, skip DOM-dependent skills
+        if (!domAvailable && (config.name === 'application-writing' || config.name === 'document-skills' || config.name === 'ui-assistant')) {
+          console.log(`Skipping DOM-dependent skill in service worker: ${config.name}`);
+          continue;
+        }
+
+        // If a dynamically loaded skill wasn't available, skip it.
+        if (!config.class) {
+          console.log(`Skipping skill (class unavailable): ${config.name}`);
+          continue;
+        }
+
         await this.registerSkill(config.class, config);
-        this.loadOrder.push(config.class.name.replace('Skill', '').toLowerCase());
+        this.loadOrder.push(config.name || config.class.name.replace('Skill', '').toLowerCase());
       } catch (error) {
         console.error(`Failed to register ${config.class.name}:`, error);
       }
     }
     
     console.log(`Registered ${this.skills.size} skills`);
+  }
+
+  async loadDomSkills() {
+    const [{ ApplicationWritingSkill }, { DocumentSkillsSkill }, { UIAssistantSkill }] = await Promise.all([
+      import('../skills/application-writing/skill.js'),
+      import('../skills/document-skills/skill.js'),
+      import('../skills/ui-assistant/skill.js'),
+    ]);
+
+    return { ApplicationWritingSkill, DocumentSkillsSkill, UIAssistantSkill };
   }
 
   async activateSkill(skillName) {

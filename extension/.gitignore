@@ -1,1 +1,9 @@
 node_modules
+
+# Build artifacts
+build/
+dist/
+dist-crx/
+
+# Local logs
+logs/

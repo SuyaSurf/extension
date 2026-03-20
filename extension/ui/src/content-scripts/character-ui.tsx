@@ -528,11 +528,15 @@ const CharacterRuntime: React.FC = () => {
   )
 }
 
+console.log('[Suya] Content script loaded, readyState:', document.readyState)
+
 function mountCharacterUI() {
   if (document.getElementById(ROOT_ID)) {
+    console.log('[Suya] Root element already exists, skipping mount')
     return
   }
 
+  console.log('[Suya] Mounting character UI...')
   const rootElement = document.createElement('div')
   rootElement.id = ROOT_ID
   document.documentElement.appendChild(rootElement)
@@ -546,3 +550,11 @@ if (document.readyState === 'loading') {
 } else {
   mountCharacterUI()
 }
+
+// Fallback: ensure mount after a short delay in case of race conditions
+setTimeout(() => {
+  if (!document.getElementById(ROOT_ID)) {
+    console.log('[Suya] Fallback mount triggered')
+    mountCharacterUI()
+  }
+}, 800)

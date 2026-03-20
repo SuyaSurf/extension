@@ -54,12 +54,6 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ guideStep, nextStep, complete
       icon: '😲'
     },
     {
-      name: 'sleeping',
-      description: 'Resting mode',
-      usage: 'Inactive, powered down',
-      icon: '😴'
-    },
-    {
       name: 'neutral',
       description: 'Default state',
       usage: 'Waiting, ready to help',
@@ -90,6 +84,18 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ guideStep, nextStep, complete
       description: 'Powered down',
       usage: 'When you want the bot to rest',
       icon: '🌙'
+    },
+    {
+      name: 'offline',
+      description: 'Disconnected',
+      usage: 'No connection or service unavailable',
+      icon: '📵'
+    },
+    {
+      name: 'bored',
+      description: 'Waiting too long',
+      usage: 'Idle for extended period',
+      icon: '😑'
     }
   ];
 

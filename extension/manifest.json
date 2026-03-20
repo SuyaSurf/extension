@@ -46,12 +46,12 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content-scripts/universal-handler.js"],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["content-script.js", "vendors.js"],
-      "run_at": "document_end"
+      "js": ["vendors.js", "698.js", "content-script.js"],
+      "run_at": "document_idle"
     }
   ],
   

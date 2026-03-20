@@ -19,10 +19,14 @@ class SpeechRecognitionEngine {
   }
 
   async initialize() {
+    if (typeof window === 'undefined') {
+      throw new Error('Speech recognition requires a window context');
+    }
+
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       throw new Error('Speech recognition not supported in this browser');
     }
-    
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     this.recognition = new SpeechRecognition();
     
@@ -112,7 +116,7 @@ class SpeechRecognitionEngine {
 
 class SpeechSynthesisEngine {
   constructor() {
-    this.synthesis = window.speechSynthesis;
+    this.synthesis = typeof window !== 'undefined' ? window.speechSynthesis : null;
     this.voices = [];
     this.currentUtterance = null;
     this.isSpeaking = false;
@@ -123,10 +127,13 @@ class SpeechSynthesisEngine {
     this.onPause = null;
     this.onResume = null;
     
-    this.loadVoices();
+    if (this.synthesis) {
+      this.loadVoices();
+    }
   }
 
   loadVoices() {
+    if (!this.synthesis) return;
     this.voices = this.synthesis.getVoices();
     
     // Listen for voice changes
@@ -352,6 +359,10 @@ class AudioFeedbackSystem {
 
   initializeAudioContext() {
     try {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     } catch (error) {
       console.warn('Web Audio API not supported:', error);
@@ -453,12 +464,18 @@ class VoiceInterface {
 
   async initialize() {
     try {
+      if (typeof window === 'undefined') {
+        this.isInitialized = false;
+        console.log('Voice interface unavailable (no window context)');
+        return;
+      }
+
       await this.recognitionEngine.initialize();
       this.isInitialized = true;
       console.log('Voice interface initialized successfully');
     } catch (error) {
       console.error('Failed to initialize voice interface:', error);
-      throw error;
+      this.isInitialized = false;
     }
   }
 
