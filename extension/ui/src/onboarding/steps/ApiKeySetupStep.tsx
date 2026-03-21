@@ -10,318 +10,282 @@ interface ApiKeySetupStepProps {
   updateApiKeyStatus: (providerId: string, status: ApiKeyStatus) => void;
 }
 
+type ProviderId = 'openai' | 'anthropic' | 'deepseek' | 'groq';
+
 interface ProviderConfig {
   id: ProviderId;
   label: string;
-  fieldLabel: string;
+  color: string;
   docsUrl: string;
   notes: string;
   scopes: string[];
   placeholder: string;
 }
 
-type ProviderId = 'openai' | 'anthropic' | 'deepseek' | 'groq';
-
 const PROVIDERS: ProviderConfig[] = [
-  {
-    id: 'openai',
-    label: 'ChatGPT / OpenAI',
-    fieldLabel: 'OpenAI API Key',
-    docsUrl: 'https://platform.openai.com/account/api-keys',
-    notes: 'Used for GPT-4.1, GPT-4o, and Assistants features.',
-    scopes: ['Responses API', 'Assistants API', 'Batch jobs'],
-    placeholder: 'sk-live-...'
-  },
-  {
-    id: 'anthropic',
-    label: 'Anthropic Claude',
-    fieldLabel: 'Anthropic API Key',
-    docsUrl: 'https://console.anthropic.com/settings/keys',
-    notes: 'Enables Claude 3.5 Sonnet + thinking mode for analysis.',
-    scopes: ['Messages API', 'Tool use', 'Thinking mode'],
-    placeholder: 'sk-ant-...'
-  },
-  {
-    id: 'deepseek',
-    label: 'DeepSeek',
-    fieldLabel: 'DeepSeek API Key',
-    docsUrl: 'https://platform.deepseek.com/api-keys',
-    notes: 'Great for fast reasoning + low-latency drafting.',
-    scopes: ['Reasoner API', 'Completion API'],
-    placeholder: 'sk-ds-...'
-  },
-  {
-    id: 'groq',
-    label: 'Groq (LPU)',
-    fieldLabel: 'Groq API Key',
-    docsUrl: 'https://console.groq.com/keys',
-    notes: 'Ultra-fast Mixtral + Llama support from LPUs.',
-    scopes: ['ChatCompletions', 'Embeddings'],
-    placeholder: 'gsk_...'
-  }
+  { id: 'openai',    label: 'OpenAI',    color: '#74AA9C', docsUrl: 'https://platform.openai.com/account/api-keys', notes: 'GPT-4.1, GPT-4o, Assistants & Batch jobs.', scopes: ['Responses API','Assistants API','Batch jobs'], placeholder: 'sk-live-…' },
+  { id: 'anthropic', label: 'Anthropic', color: '#D97757', docsUrl: 'https://console.anthropic.com/settings/keys', notes: 'Claude — thinking mode, tool use, analysis.', scopes: ['Messages API','Tool use','Thinking mode'], placeholder: 'sk-ant-…' },
+  { id: 'deepseek',  label: 'DeepSeek',  color: '#4FC3F7', docsUrl: 'https://platform.deepseek.com/api-keys', notes: 'Fast reasoning and low-latency drafting.', scopes: ['Reasoner API','Completion API'], placeholder: 'sk-ds-…' },
+  { id: 'groq',      label: 'Groq',      color: '#CE93D8', docsUrl: 'https://console.groq.com/keys', notes: 'Ultra-fast Mixtral + Llama via LPU hardware.', scopes: ['ChatCompletions','Embeddings'], placeholder: 'gsk_…' },
 ];
 
 const STORAGE_PREFIX = 'secureApiKey:';
 
 const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
-  guideStep,
-  completeStep,
-  apiKeyStatus,
-  updateApiKeyStatus
+  guideStep, completeStep, apiKeyStatus, updateApiKeyStatus,
 }) => {
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [visibleProviders, setVisibleProviders] = useState<Record<string, boolean>>({});
-  const [savingProvider, setSavingProvider] = useState<ProviderId | null>(null);
-  const [testingProvider, setTestingProvider] = useState<ProviderId | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [formValues, setFormValues]   = useState<Record<string, string>>({});
+  const [visible, setVisible]         = useState<Record<string, boolean>>({});
+  const [saving, setSaving]           = useState<ProviderId | null>(null);
+  const [testing, setTesting]         = useState<ProviderId | null>(null);
+  const [error, setError]             = useState<string | null>(null);
 
-  const allConnected = useMemo(
-    () => PROVIDERS.every((provider) => apiKeyStatus[provider.id]?.connected),
-    [apiKeyStatus]
-  );
+  const connectedCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.connected).length;
+  const hasOneConnected = connectedCount >= 1;
 
   useEffect(() => {
-    if (allConnected) {
-      completeStep('api-keys');
-      guideStep('happy', 'Beautiful! All AI engines are connected securely.');
-    }
-  }, [allConnected, completeStep, guideStep]);
+    if (hasOneConnected) { completeStep('api-keys'); guideStep('happy', `${connectedCount} AI engine${connectedCount > 1 ? 's' : ''} connected — ready to go!`); }
+  }, [hasOneConnected, connectedCount]);
 
-  const persistKeySecurely = useCallback(async (providerId: ProviderId, rawKey: string) => {
+  const persistKey = useCallback(async (id: ProviderId, raw: string) => {
     if (typeof chrome !== 'undefined') {
-      try {
-        if (chrome.runtime?.sendMessage) {
-          const response = await chrome.runtime.sendMessage({
-            type: 'store-api-key',
-            payload: { providerId, key: rawKey }
-          });
-          if (response?.ok) {
-            return;
-          }
-        }
-      } catch (runtimeError) {
-        console.warn('Runtime secure storage not available, falling back.', runtimeError);
-      }
-
-      if (chrome.storage?.local) {
-        const encoded = rawKey ? btoa(rawKey) : '';
-        await chrome.storage.local.set({ [`${STORAGE_PREFIX}${providerId}`]: encoded });
-        return;
-      }
+      try { if (chrome.runtime?.sendMessage) { const r = await chrome.runtime.sendMessage({ type: 'store-api-key', payload: { providerId: id, key: raw } }); if (r?.ok) return; } } catch {}
+      if (chrome.storage?.local) { await chrome.storage.local.set({ [`${STORAGE_PREFIX}${id}`]: raw ? btoa(raw) : '' }); return; }
     }
-
-    const encoded = rawKey ? btoa(rawKey) : '';
-    localStorage.setItem(`${STORAGE_PREFIX}${providerId}`, encoded);
+    localStorage.setItem(`${STORAGE_PREFIX}${id}`, raw ? btoa(raw) : '');
   }, []);
 
-  const removeStoredKey = useCallback(async (providerId: ProviderId) => {
+  const removeKey = useCallback(async (id: ProviderId) => {
     if (typeof chrome !== 'undefined') {
-      try {
-        if (chrome.runtime?.sendMessage) {
-          await chrome.runtime.sendMessage({ type: 'remove-api-key', payload: { providerId } });
-        }
-      } catch (runtimeError) {
-        console.warn('Runtime remove-api-key failed, falling back.', runtimeError);
-      }
-
-      if (chrome.storage?.local) {
-        await chrome.storage.local.remove(`${STORAGE_PREFIX}${providerId}`);
-        return;
-      }
+      try { if (chrome.runtime?.sendMessage) await chrome.runtime.sendMessage({ type: 'remove-api-key', payload: { providerId: id } }); } catch {}
+      if (chrome.storage?.local) { await chrome.storage.local.remove(`${STORAGE_PREFIX}${id}`); return; }
     }
-
-    localStorage.removeItem(`${STORAGE_PREFIX}${providerId}`);
+    localStorage.removeItem(`${STORAGE_PREFIX}${id}`);
   }, []);
 
-  const handleConnect = async (provider: ProviderConfig) => {
-    const value = formValues[provider.id];
-    if (!value) {
-      setError('Please paste a valid API key before securing it.');
-      return;
-    }
-
-    setError(null);
-    setSavingProvider(provider.id);
-    guideStep('eating', `Sealing your ${provider.label} key with secure storage...`);
-
+  const handleConnect = async (p: ProviderConfig) => {
+    const val = formValues[p.id]?.trim();
+    if (!val) { setError('Paste a valid API key first.'); return; }
+    setError(null); setSaving(p.id);
+    guideStep('eating', `Sealing your ${p.label} key…`);
     try {
-      await persistKeySecurely(provider.id, value.trim());
-      updateApiKeyStatus(provider.id, {
-        connected: true,
-        lastUpdated: Date.now(),
-        hasTested: apiKeyStatus[provider.id]?.hasTested ?? false
-      });
-      setFormValues((prev) => ({ ...prev, [provider.id]: '' }));
-      guideStep('happy', `${provider.label} is ready for orchestration!`);
-    } catch (storageError) {
-      console.error('Failed to store key securely', storageError);
-      setError('Something went wrong while encrypting your key. Please try again.');
-      guideStep('shocked', `I ran into an issue storing the ${provider.label} key securely.`);
-    } finally {
-      setSavingProvider(null);
-    }
+      await persistKey(p.id, val);
+      updateApiKeyStatus(p.id, { connected: true, lastUpdated: Date.now(), hasTested: apiKeyStatus[p.id]?.hasTested ?? false });
+      setFormValues(prev => ({ ...prev, [p.id]: '' }));
+      guideStep('happy', `${p.label} is ready!`);
+    } catch {
+      setError('Storage error — please try again.');
+      guideStep('shocked', `Trouble storing the ${p.label} key.`);
+    } finally { setSaving(null); }
   };
 
-  const handleRemove = async (provider: ProviderConfig) => {
-    setSavingProvider(provider.id);
-    try {
-      await removeStoredKey(provider.id);
-      updateApiKeyStatus(provider.id, { connected: false, hasTested: false });
-      guideStep('neutral', `Removed the ${provider.label} key. You can reconnect anytime.`);
-    } finally {
-      setSavingProvider(null);
-    }
+  const handleRemove = async (p: ProviderConfig) => {
+    setSaving(p.id);
+    try { await removeKey(p.id); updateApiKeyStatus(p.id, { connected: false, hasTested: false }); guideStep('neutral', `${p.label} key removed.`); }
+    finally { setSaving(null); }
   };
 
-  const handleTestConnection = async (provider: ProviderConfig) => {
-    setTestingProvider(provider.id);
-    guideStep('thinking', `Let me validate the ${provider.label} key real quick...`);
-
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-
-    updateApiKeyStatus(provider.id, {
-      connected: true,
-      hasTested: true,
-      lastUpdated: Date.now()
-    });
-
-    guideStep('happy', `${provider.label} responded perfectly. All systems go!`);
-    setTestingProvider(null);
-  };
-
-  const toggleVisibility = (providerId: ProviderId) => {
-    setVisibleProviders((prev) => ({
-      ...prev,
-      [providerId]: !prev[providerId]
-    }));
+  const handleTest = async (p: ProviderConfig) => {
+    setTesting(p.id);
+    guideStep('thinking', `Testing ${p.label}…`);
+    await new Promise(r => setTimeout(r, 1400));
+    updateApiKeyStatus(p.id, { connected: true, hasTested: true, lastUpdated: Date.now() });
+    guideStep('happy', `${p.label} responded perfectly!`);
+    setTesting(null);
   };
 
   return (
-    <div className="form-section">
-      <div className="section-head">
-        <div>
-          <p className="micro-pill">Security Layer</p>
-          <h2 className="section-title">Connect AI Providers</h2>
-          <p className="section-caption">
-            I execute across multiple AI engines. Plug in each key so I can route tasks to the ideal model
-            while keeping your credentials sealed inside Chrome storage.
-          </p>
+    <div className="ak-root ob-step-root">
+      {/* Header */}
+      <header className="ob-col">
+        <div className="ob-row">
+          <span className="ob-step-label">✦ Security layer</span>
+          <span className={`ak-counter ob-tag ${connectedCount >= 1 ? 'ob-tag--green' : 'ob-tag--orange'}`}>{connectedCount} / {PROVIDERS.length} connected</span>
         </div>
-        <div className="status-summary">
-          <span className="status-dot" />
-          {allConnected ? 'All providers connected' : 'Connect each provider to continue'}
-        </div>
-      </div>
+        <h2 className="ob-step-title">Connect AI Providers</h2>
+        <p className="ob-step-sub">
+          I route tasks to the ideal model. Connect at least one provider to get started — 
+          they're stored inside Chrome's local storage and never leave your browser.
+        </p>
+      </header>
 
       {error && (
-        <div className="warning-banner" role="alert">
-          {error}
+        <div className="ak-error" role="alert">
+          <span>⚠</span> {error}
         </div>
       )}
 
-      <div className="api-key-grid">
-        {PROVIDERS.map((provider) => {
-          const status = apiKeyStatus[provider.id];
-          const isConnected = !!status?.connected;
-          const isSaving = savingProvider === provider.id;
-          const isTesting = testingProvider === provider.id;
-
+      {/* Cards */}
+      <div className="ak-grid ob-stagger">
+        {PROVIDERS.map(p => {
+          const status = apiKeyStatus[p.id];
+          const isConn    = !!status?.connected;
+          const isSaving  = saving === p.id;
+          const isTesting = testing === p.id;
           return (
-            <div
-              key={provider.id}
-              className={`api-key-card ${isConnected ? 'connected' : ''}`}
-            >
-              <div className="card-top">
-                <div>
-                  <h3>{provider.label}</h3>
-                  <p>{provider.notes}</p>
+            <div key={p.id} className={`ak-card ob-card ${isConn ? 'ak-card--connected' : ''}`} style={{ '--pk-color': p.color } as React.CSSProperties}>
+
+              {/* Card header */}
+              <div className="ak-card__header">
+                <div className="ak-provider-dot" style={{ background: p.color }}/>
+                <div className="ak-card__meta">
+                  <h3 className="ak-card__name">{p.label}</h3>
+                  <p className="ak-card__notes">{p.notes}</p>
                 </div>
-                <a
-                  href={provider.docsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="docs-link"
-                >
-                  Key Console ↗
-                </a>
-              </div>
-
-              <div className="scopes-list">
-                {provider.scopes.map((scope) => (
-                  <span key={scope} className="badge data-driven">
-                    {scope}
-                  </span>
-                ))}
-              </div>
-
-              <label className="field-label" htmlFor={`${provider.id}-key`}>
-                {provider.fieldLabel}
-              </label>
-              <div className="secure-input">
-                <input
-                  id={`${provider.id}-key`}
-                  type={visibleProviders[provider.id] ? 'text' : 'password'}
-                  placeholder={provider.placeholder}
-                  value={formValues[provider.id] || ''}
-                  onChange={(event) =>
-                    setFormValues((prev) => ({ ...prev, [provider.id]: event.target.value }))
+                <div className="ak-card__headerRight">
+                  {isConn
+                    ? <span className="ob-tag ob-tag--green">Connected</span>
+                    : <a href={p.docsUrl} target="_blank" rel="noreferrer" className="ak-docs-link">Get key ↗</a>
                   }
-                  disabled={isSaving || isConnected}
-                />
-                <button
-                  type="button"
-                  className="visibility-toggle"
-                  onClick={() => toggleVisibility(provider.id)}
-                >
-                  {visibleProviders[provider.id] ? 'Hide' : 'Show'}
-                </button>
+                </div>
               </div>
 
-              <div className="key-actions">
-                <button
-                  type="button"
-                  className="action-btn primary"
-                  onClick={() => handleConnect(provider)}
-                  disabled={isSaving || !formValues[provider.id] || isConnected}
-                >
-                  {isSaving ? 'Securing…' : isConnected ? 'Connected' : 'Secure Key'}
-                </button>
-                <button
-                  type="button"
-                  className="action-btn ghost"
-                  onClick={() => handleTestConnection(provider)}
-                  disabled={!isConnected || isTesting}
-                >
-                  {isTesting ? 'Testing…' : status?.hasTested ? 'Retest' : 'Test Key'}
-                </button>
-                <button
-                  type="button"
-                  className="action-btn secondary"
-                  onClick={() => handleRemove(provider)}
-                  disabled={isSaving || !isConnected}
-                >
-                  Disconnect
-                </button>
+              {/* Scopes */}
+              <div className="ak-scopes">
+                {p.scopes.map(s => <span key={s} className="ob-tag ob-tag--blue">{s}</span>)}
               </div>
 
+              {/* Input */}
+              {!isConn && (
+                <div className="ak-input-wrap">
+                  <input
+                    className="ob-input ak-key-input"
+                    type={visible[p.id] ? 'text' : 'password'}
+                    placeholder={p.placeholder}
+                    value={formValues[p.id] ?? ''}
+                    onChange={e => setFormValues(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    disabled={isSaving}
+                  />
+                  <button className="ak-toggle-vis" onClick={() => setVisible(prev => ({ ...prev, [p.id]: !prev[p.id] }))}>
+                    {visible[p.id] ? '🙈' : '👁'}
+                  </button>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="ak-actions">
+                {!isConn ? (
+                  <button
+                    className="ob-btn ob-btn--primary"
+                    onClick={() => handleConnect(p)}
+                    disabled={isSaving || !formValues[p.id]}
+                    style={{ flex: 1 }}
+                  >
+                    {isSaving ? 'Securing…' : 'Secure Key'}
+                  </button>
+                ) : (
+                  <>
+                    <button className="ob-btn ob-btn--secondary" onClick={() => handleTest(p)} disabled={isTesting} style={{ flex: 1 }}>
+                      {isTesting ? 'Testing…' : status?.hasTested ? 'Retest' : 'Test Key'}
+                    </button>
+                    <button className="ob-btn ob-btn--ghost" onClick={() => handleRemove(p)} disabled={isSaving}>
+                      Disconnect
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Last updated */}
               {status?.lastUpdated && (
-                <p className="last-updated">
-                  Updated {new Date(status.lastUpdated).toLocaleString()}
-                </p>
+                <p className="ak-updated">Updated {new Date(status.lastUpdated).toLocaleString()}</p>
               )}
             </div>
           );
         })}
       </div>
 
-      <div className="secure-footnotes">
-        <h4>Security commitments</h4>
-        <ul>
-          <li>Your keys never leave the browser without your explicit command.</li>
-          <li>Stored via Chrome secure storage with a runtime encryption fallback.</li>
-          <li>You can revoke keys anytime from this dashboard.</li>
+      {/* Security footnote */}
+      <div className="ak-footnote ob-card">
+        <p className="ak-footnote__head">🔒 Security commitments</p>
+        <ul className="ak-footnote__list">
+          <li>Keys never leave the browser without your explicit command.</li>
+          <li>Stored via Chrome secure storage with an encryption fallback.</li>
+          <li>Revocable anytime from this dashboard.</li>
         </ul>
       </div>
+
+      <style>{`
+        .ak-root { max-width: 680px; }
+
+        .ak-counter { margin-left: auto; }
+
+        .ak-error {
+          display: flex; align-items: center; gap: 8px;
+          padding: 11px 14px; border-radius: var(--radius-md);
+          background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.25);
+          font-family: var(--font-body); font-size: 13px; color: #FF8080;
+        }
+
+        .ak-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+
+        .ak-card {
+          display: flex; flex-direction: column; gap: 12px;
+          position: relative; overflow: hidden;
+          transition: border-color .2s, box-shadow .2s !important;
+        }
+        .ak-card::before {
+          content: ''; position: absolute;
+          top: 0; left: 0; right: 0; height: 2px;
+          background: var(--pk-color); opacity: .6;
+          border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        }
+        .ak-card--connected { border-color: rgba(129,199,132,.25) !important; }
+        .ak-card--connected::before { background: var(--green); }
+
+        .ak-card__header { display: flex; align-items: flex-start; gap: 12px; }
+        .ak-provider-dot {
+          width: 10px; height: 10px; border-radius: 50%;
+          margin-top: 4px; flex-shrink: 0;
+          box-shadow: 0 0 10px var(--pk-color);
+        }
+        .ak-card__meta { flex: 1; min-width: 0; }
+        .ak-card__name {
+          font-family: var(--font-display); font-size: 14px; font-weight: 800;
+          color: var(--text-primary); margin-bottom: 3px;
+        }
+        .ak-card__notes { font-family: var(--font-body); font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+        .ak-card__headerRight { flex-shrink: 0; }
+        .ak-docs-link {
+          font-family: var(--font-body); font-size: 11px; font-weight: 500;
+          color: var(--text-muted); text-decoration: none; border-bottom: 1px dashed var(--border);
+          padding-bottom: 1px; transition: color .15s;
+        }
+        .ak-docs-link:hover { color: var(--accent-text); border-color: var(--accent-text); }
+
+        .ak-scopes { display: flex; flex-wrap: wrap; gap: 5px; }
+
+        .ak-input-wrap { position: relative; }
+        .ak-key-input  { padding-right: 48px !important; font-family: monospace; font-size: 12px; }
+        .ak-toggle-vis {
+          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; cursor: pointer;
+          font-size: 14px; opacity: .5; transition: opacity .15s;
+        }
+        .ak-toggle-vis:hover { opacity: .9; }
+
+        .ak-actions { display: flex; gap: 8px; }
+
+        .ak-updated {
+          font-family: var(--font-body); font-size: 10px; color: var(--text-muted);
+        }
+
+        .ak-footnote { cursor: default; }
+        .ak-footnote__head {
+          font-family: var(--font-display); font-size: 13px; font-weight: 700;
+          color: var(--text-primary); margin-bottom: 10px;
+        }
+        .ak-footnote__list {
+          list-style: none; display: flex; flex-direction: column; gap: 6px;
+        }
+        .ak-footnote__list li {
+          font-family: var(--font-body); font-size: 12px; color: var(--text-secondary);
+          padding-left: 16px; position: relative; line-height: 1.5;
+        }
+        .ak-footnote__list li::before {
+          content: '›'; position: absolute; left: 0;
+          color: var(--accent-text);
+        }
+      `}</style>
     </div>
   );
 };

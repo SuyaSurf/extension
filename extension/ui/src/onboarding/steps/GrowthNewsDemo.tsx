@@ -9,19 +9,6 @@ interface GrowthNewsDemoProps {
   userProfile: Partial<UserProfile>;
 }
 
-interface DemoArticle {
-  id: string;
-  title: string;
-  summary: string;
-  source: string;
-  sourceId: string;
-  category: string;
-  publishedAt: string;
-  readTime: number;
-  growthInsight: GrowthInsight;
-  url: string;
-}
-
 interface GrowthInsight {
   type: 'deepen' | 'expand' | 'explore';
   explanation: string;
@@ -30,314 +17,299 @@ interface GrowthInsight {
   actionItems: string[];
 }
 
-const GrowthNewsDemo: React.FC<GrowthNewsDemoProps> = ({
-  guideStep, 
-  nextStep, 
-  completeStep, 
-  userProfile
-}) => {
-  const [demoArticles, setDemoArticles] = useState<DemoArticle[]>([]);
-  const [growthInsights, setGrowthInsights] = useState<Record<string, GrowthInsight>>({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
+interface DemoArticle {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  category: string;
+  publishedAt: string;
+  readTime: number;
+  growthInsight: GrowthInsight;
+  url: string;
+}
 
-  // Demo articles based on user profile
-  const generateDemoArticles = async (): Promise<DemoArticle[]> => {
+const ARTICLE_POOL: Record<string, Array<Omit<DemoArticle, 'id' | 'source' | 'publishedAt' | 'growthInsight'>>> = {
+  technology: [
+    { title: 'The Rise of AI-Powered Dev Tools',          summary: 'How AI is transforming development with intelligent code completion, automated testing, and predictive debugging.',         category: 'technology', readTime: 5, url: '#' },
+    { title: 'Microservices vs Monolith: 2024 Perspective',summary: 'A comprehensive analysis of when to choose microservices over monolithic architecture in modern software development.',  category: 'technology', readTime: 8, url: '#' },
+    { title: 'WebAssembly: The Future of Web Performance', summary: 'Exploring how WebAssembly is enabling high-performance browser applications and its implications for developers.',           category: 'technology', readTime: 6, url: '#' },
+  ],
+  business: [
+    { title: 'Strategic Leadership in the Digital Age',    summary: 'Essential strategies for leaders navigating digital transformation and technological disruption.',                          category: 'business',  readTime: 7, url: '#' },
+    { title: 'Data-Driven Decision Making Framework',      summary: 'How to build and implement effective data analytics strategies for measurably better business outcomes.',                   category: 'business',  readTime: 6, url: '#' },
+  ],
+  design: [
+    { title: 'UX Design Systems at Scale',                summary: 'Building and maintaining design systems that scale across multiple products and distributed teams.',                         category: 'design',    readTime: 5, url: '#' },
+    { title: 'The Psychology of Interface Design',         summary: 'Cognitive psychology principles that drive effective user interface design decisions and reduce friction.',                  category: 'design',    readTime: 7, url: '#' },
+  ],
+  science: [
+    { title: 'Quantum Computing Breakthroughs in 2024',   summary: 'Recent advances in quantum computing and their potential applications across industries from logistics to cryptography.',    category: 'science',   readTime: 8, url: '#' },
+    { title: 'Climate Science: Latest Research Findings', summary: 'Comprehensive overview of latest climate change research and its implications for global policy and industry.',              category: 'science',   readTime: 10, url: '#' },
+  ],
+};
+
+const INSIGHT_TEMPLATES: Record<string, GrowthInsight> = {
+  deepen:  { type: 'deepen',  explanation: 'Advances your existing knowledge with advanced concepts.', relevance: 0, skills: ['Advanced Techniques','Industry Standards','Best Practices'], actionItems: ['Apply to current projects','Share with teammates','Build implementation plan'] },
+  expand:  { type: 'expand',  explanation: 'Grows you into adjacent areas that complement your domain.', relevance: 0, skills: ['Cross-Domain Knowledge','New Perspectives','Broader Context'], actionItems: ['Explore related topics','Connect to current work','Spot collaboration opportunities'] },
+  explore: { type: 'explore', explanation: 'Keeps you ahead of emerging trends and innovations.', relevance: 0, skills: ['Trend Awareness','Future Planning','Innovation Insight'], actionItems: ['Monitor developments','Evaluate adoption potential','Consider strategic impact'] },
+};
+
+const INSIGHT_TYPE_COLORS: Record<string, string> = {
+  deepen:  'ob-tag--orange',
+  expand:  'ob-tag--blue',
+  explore: 'ob-tag--purple',
+};
+
+const SCAN_MSGS = ['Analysing your profile…', 'Curating relevant articles…', 'Calculating growth potential…', 'Personalising insights…'];
+
+const GrowthNewsDemo: React.FC<GrowthNewsDemoProps> = ({ guideStep, nextStep, completeStep, userProfile }) => {
+  const [articles, setArticles]    = useState<DemoArticle[]>([]);
+  const [loading, setLoading]      = useState(true);
+  const [scanStep, setScanStep]    = useState(0);
+  const [expanded, setExpanded]    = useState<string | null>(null);
+
+  const buildArticles = (): DemoArticle[] => {
     const { careerFocus, growthGoal, recommendedSources } = userProfile;
-    
-    const articleTemplates: Record<string, Partial<DemoArticle>[]> = {
-      technology: [
-        {
-          title: "The Rise of AI-Powered Development Tools",
-          summary: "How artificial intelligence is transforming the software development landscape with intelligent code completion, automated testing, and predictive debugging.",
-          category: "technology",
-          readTime: 5,
-          url: "https://example.com/ai-dev-tools"
-        },
-        {
-          title: "Microservices vs Monolith: A 2024 Perspective",
-          summary: "A comprehensive analysis of when to choose microservices over monolithic architecture in modern software development.",
-          category: "technology",
-          readTime: 8,
-          url: "https://example.com/microservices-monolith"
-        },
-        {
-          title: "WebAssembly: The Future of Web Performance",
-          summary: "Exploring how WebAssembly is enabling high-performance applications in the browser and its implications for developers.",
-          category: "technology",
-          readTime: 6,
-          url: "https://example.com/webassembly-future"
-        }
-      ],
-      business: [
-        {
-          title: "Strategic Leadership in the Digital Age",
-          summary: "Essential strategies for business leaders navigating digital transformation and technological disruption.",
-          category: "business",
-          readTime: 7,
-          url: "https://example.com/digital-leadership"
-        },
-        {
-          title: "Data-Driven Decision Making Framework",
-          summary: "How to build and implement effective data analytics strategies for better business outcomes.",
-          category: "business",
-          readTime: 6,
-          url: "https://example.com/data-driven"
-        }
-      ],
-      design: [
-        {
-          title: "UX Design Systems at Scale",
-          summary: "Building and maintaining design systems that scale across multiple products and teams.",
-          category: "design",
-          readTime: 5,
-          url: "https://example.com/design-systems"
-        },
-        {
-          title: "The Psychology of User Interface Design",
-          summary: "Understanding cognitive psychology principles that drive effective user interface design decisions.",
-          category: "design",
-          readTime: 7,
-          url: "https://example.com/ui-psychology"
-        }
-      ],
-      science: [
-        {
-          title: "Quantum Computing Breakthroughs in 2024",
-          summary: "Recent advances in quantum computing and their potential applications in various industries.",
-          category: "science",
-          readTime: 8,
-          url: "https://example.com/quantum-computing"
-        },
-        {
-          title: "Climate Science: Latest Research Findings",
-          summary: "Comprehensive overview of the latest climate change research and its implications for policy.",
-          category: "science",
-          readTime: 10,
-          url: "https://example.com/climate-science"
-        }
-      ]
-    };
+    const pool = ARTICLE_POOL[careerFocus as string] ?? ARTICLE_POOL.technology;
+    const sources = (recommendedSources as NewsSource[] | undefined) ?? [];
 
-    const baseArticles = articleTemplates[careerFocus as string] || articleTemplates.technology;
-    const sources = recommendedSources as NewsSource[] || [];
-    
-    const articles: DemoArticle[] = baseArticles.map((template, index) => {
-      const source = sources[index % sources.length] || sources[0];
-      const insight = generateGrowthInsight(template, userProfile);
-      
+    return pool.map((tpl, i) => {
+      const goalKey = growthGoal as string ?? 'explore';
+      const insight: GrowthInsight = {
+        ...INSIGHT_TEMPLATES[goalKey] ?? INSIGHT_TEMPLATES.explore,
+        explanation: (INSIGHT_TEMPLATES[goalKey] ?? INSIGHT_TEMPLATES.explore).explanation.replace('your domain', careerFocus as string ?? 'your domain'),
+        relevance: 78 + Math.floor(Math.random() * 20),
+      };
       return {
-        id: `demo-${index}`,
-        source: source?.name || 'Tech Source',
-        sourceId: source?.id || 'default',
-        publishedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        title: template.title || 'Untitled Article',
-        summary: template.summary || 'Article summary not available.',
-        category: template.category || 'general',
-        readTime: template.readTime || 5,
-        url: template.url || '#',
-        growthInsight: insight
+        id:          `a${i}`,
+        source:      sources[i % Math.max(sources.length, 1)]?.name ?? 'Curated Source',
+        publishedAt: new Date(Date.now() - Math.random() * 7 * 86400000).toISOString(),
+        growthInsight: insight,
+        ...tpl,
       };
     });
-
-    return articles;
-  };
-
-  const generateGrowthInsight = (article: Partial<DemoArticle>, profile: Partial<UserProfile>): GrowthInsight => {
-    const { growthGoal, careerFocus } = profile;
-    
-    const insights: Record<string, GrowthInsight> = {
-      deepen: {
-        type: 'deepen',
-        explanation: `This article deepens your expertise in ${careerFocus} with advanced concepts and best practices.`,
-        relevance: 85 + Math.floor(Math.random() * 15),
-        skills: ['Advanced Techniques', 'Industry Standards', 'Best Practices'],
-        actionItems: ['Apply these concepts to current projects', 'Share with team members', 'Create implementation plan']
-      },
-      expand: {
-        type: 'expand',
-        explanation: `This article expands your knowledge into adjacent areas that complement your ${careerFocus} expertise.`,
-        relevance: 75 + Math.floor(Math.random() * 20),
-        skills: ['Cross-Domain Knowledge', 'New Perspectives', 'Broader Understanding'],
-        actionItems: ['Explore related topics', 'Connect to current work', 'Identify collaboration opportunities']
-      },
-      explore: {
-        type: 'explore',
-        explanation: `This article keeps you updated on emerging trends and innovations in ${careerFocus}.`,
-        relevance: 80 + Math.floor(Math.random() * 20),
-        skills: ['Trend Awareness', 'Future Planning', 'Innovation Insight'],
-        actionItems: ['Monitor developments', 'Evaluate adoption potential', 'Consider strategic implications']
-      }
-    };
-
-    return insights[growthGoal as keyof typeof insights] || insights.explore;
-  };
-
-  const runPersonalizedDemo = async () => {
-    setIsGenerating(true);
-    guideStep('eating', 'Finding articles that will help you grow...');
-
-    // Simulate article generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const articles = await generateDemoArticles();
-    const insights: Record<string, GrowthInsight> = {};
-    
-    articles.forEach(article => {
-      insights[article.id] = article.growthInsight;
-    });
-
-    setDemoArticles(articles);
-    setGrowthInsights(insights);
-    setIsGenerating(false);
-    
-    guideStep('happy', `Found ${articles.length} articles with high growth potential!`);
-  };
-
-  const selectArticle = (articleId: string) => {
-    setSelectedArticle(articleId);
-    const article = demoArticles.find(a => a.id === articleId);
-    if (article) {
-      guideStep('thinking', `Great choice! This ${article.growthInsight.type} article has ${article.growthInsight.relevance}% relevance to your goals.`);
-    }
-  };
-
-  const completeDemo = () => {
-    completeStep('growth-demo');
-    guideStep('happy', 'Excellent! You now have a personalized news system that will help you grow continuously.');
-    nextStep();
   };
 
   useEffect(() => {
-    runPersonalizedDemo();
+    const run = async () => {
+      guideStep('eating', 'Finding articles that will help you grow…');
+      for (let i = 0; i < SCAN_MSGS.length; i++) {
+        await new Promise(r => setTimeout(r, 520));
+        setScanStep(i);
+      }
+      const built = buildArticles();
+      setArticles(built);
+      setLoading(false);
+      guideStep('happy', `Found ${built.length} articles with high growth potential!`);
+    };
+    run();
   }, []);
 
-  if (isGenerating) {
-    return (
-      <div className="growth-demo-loading">
-        <h2>Generating Your Personalized News</h2>
-        <p>I'm finding articles that match your growth goals and interests...</p>
-        
-        <div className="generation-process">
-          <div className="process-step active">Analyzing your profile...</div>
-          <div className="process-step">Curating relevant articles...</div>
-          <div className="process-step">Calculating growth potential...</div>
-          <div className="process-step">Personalizing insights...</div>
-        </div>
+  const finish = () => { completeStep('growth-demo'); guideStep('happy', 'Your personalised news system is live!'); nextStep(); };
+
+  const avgRelevance = articles.length
+    ? Math.round(articles.reduce((s, a) => s + a.growthInsight.relevance, 0) / articles.length)
+    : 0;
+
+  if (loading) return (
+    <div className="gn-root ob-step-root">
+      <header className="ob-col">
+        <span className="ob-step-label">✦ Generating your feed</span>
+        <h2 className="ob-step-title">Building your<br/>personalised news</h2>
+      </header>
+      <div className="gn-scan ob-stagger">
+        {SCAN_MSGS.map((msg, i) => (
+          <div key={msg} className={`gn-scan-row ${i < scanStep ? 'gn-scan-row--done' : i === scanStep ? 'gn-scan-row--active' : ''}`}>
+            <span className="gn-scan-row__dot"/>
+            <span className="gn-scan-row__text">{msg}</span>
+            {i < scanStep && <span className="gn-scan-row__check">✓</span>}
+          </div>
+        ))}
       </div>
-    );
-  }
+      <Styles/>
+    </div>
+  );
 
   return (
-    <div className="growth-news-demo">
-      <div className="demo-content">
-        <h2>Your Personalized Growth News</h2>
-        <p>
-          Here are articles specifically selected to help you {userProfile.growthGoal} in {userProfile.careerFocus}.
-          Each article includes growth insights and action items.
+    <div className="gn-root ob-step-root">
+      <header className="ob-col">
+        <span className="ob-step-label">✦ Your personalised feed</span>
+        <h2 className="ob-step-title">Growth news, curated<br/>for you</h2>
+        <p className="ob-step-sub">
+          Every article is scored for how much it helps you <strong>{userProfile.growthGoal}</strong> in <strong>{userProfile.careerFocus}</strong>.
         </p>
+      </header>
 
-        {/* Articles Grid */}
-        <div className="articles-grid">
-          {demoArticles.map(article => (
-            <div 
-              key={article.id}
-              className={`growth-article-card ${selectedArticle === article.id ? 'selected' : ''}`}
-              onClick={() => selectArticle(article.id)}
-            >
-              <div className="article-header">
-                <div className="article-source">
-                  <span className="source-badge">{article.source}</span>
-                  <span className="category-badge">{article.category}</span>
+      {/* Stats bar */}
+      <div className="gn-stats ob-stagger">
+        {[
+          { label: 'Articles curated', value: articles.length },
+          { label: 'Avg relevance',    value: `${avgRelevance}%` },
+          { label: 'Strategy',         value: userProfile.growthGoal ?? '—' },
+        ].map(s => (
+          <div key={s.label} className="gn-stat ob-card">
+            <span className="gn-stat__value">{s.value}</span>
+            <span className="gn-stat__label">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Articles */}
+      <div className="gn-articles ob-stagger">
+        {articles.map(a => {
+          const isOpen = expanded === a.id;
+          const ins    = a.growthInsight;
+          return (
+            <div key={a.id} className={`gn-article ob-card ${isOpen ? 'gn-article--open' : ''}`}>
+              <div className="gn-article__top" onClick={() => setExpanded(isOpen ? null : a.id)}>
+                <div className="gn-article__badges">
+                  <span className="ob-tag ob-tag--orange">{a.source}</span>
+                  <span className="ob-tag ob-tag--blue">{a.category}</span>
+                  <span className={`ob-tag ${INSIGHT_TYPE_COLORS[ins.type]}`}>{ins.type}</span>
                 </div>
-                <div className="article-meta">
-                  <span className="read-time">{article.readTime} min read</span>
-                  <span className="publish-date">
-                    {new Date(article.publishedAt).toLocaleDateString()}
-                  </span>
+                <div className="gn-article__relevance">
+                  <div className="gn-relevance-bar">
+                    <div className="gn-relevance-fill" style={{ width: `${ins.relevance}%` }}/>
+                  </div>
+                  <span className="gn-relevance-num">{ins.relevance}%</span>
                 </div>
               </div>
 
-              <h3 className="article-title">{article.title}</h3>
-              <p className="article-summary">{article.summary}</p>
+              <h3 className="gn-article__title" onClick={() => setExpanded(isOpen ? null : a.id)}>
+                {a.title}
+              </h3>
+              <p className="gn-article__summary">{a.summary}</p>
 
-              {/* Growth Insight */}
-              <div className="growth-insight">
-                <div className="insight-header">
-                  <div className="insight-type">
-                    <span className={`type-badge ${article.growthInsight.type}`}>
-                      {article.growthInsight.type}
-                    </span>
-                    <span className="relevance-score">
-                      {article.growthInsight.relevance}% relevant
-                    </span>
-                  </div>
-                </div>
-                
-                <p className="insight-explanation">{article.growthInsight.explanation}</p>
-                
-                <div className="insight-details">
-                  <div className="skills-section">
-                    <h4>Skills You'll Gain:</h4>
-                    <div className="skills-list">
-                      {article.growthInsight.skills.map((skill, idx) => (
-                        <span key={idx} className="skill-tag">{skill}</span>
-                      ))}
+              <div className="gn-article__meta">
+                <span className="gn-article__time">{a.readTime} min read</span>
+                <span className="gn-article__date">{new Date(a.publishedAt).toLocaleDateString()}</span>
+              </div>
+
+              {isOpen && (
+                <div className="gn-insight">
+                  <p className="gn-insight__expl">{ins.explanation}</p>
+                  <div className="gn-insight__cols">
+                    <div>
+                      <p className="gn-insight__sublabel">Skills gained</p>
+                      <div className="gn-insight__tags">
+                        {ins.skills.map(s => <span key={s} className="ob-tag ob-tag--amber">{s}</span>)}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="gn-insight__sublabel">Action items</p>
+                      <ul className="gn-insight__actions">
+                        {ins.actionItems.map(a => <li key={a}>{a}</li>)}
+                      </ul>
                     </div>
                   </div>
-                  
-                  <div className="actions-section">
-                    <h4>Action Items:</h4>
-                    <ul className="actions-list">
-                      {article.growthInsight.actionItems.map((action, idx) => (
-                        <li key={idx}>{action}</li>
-                      ))}
-                    </ul>
-                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="article-actions">
-                <button className="action-btn secondary">Read Later</button>
-                <button className="action-btn primary">Read Now</button>
+              <div className="gn-article__btns">
+                <button className="ob-btn ob-btn--secondary" style={{ flex: 1 }}>Save for later</button>
+                <button className="ob-btn ob-btn--primary"   style={{ flex: 1 }}>Read now →</button>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Demo Summary */}
-        <div className="demo-summary">
-          <h3>Your Personalized News Experience</h3>
-          <div className="summary-stats">
-            <div className="stat-item">
-              <div className="stat-number">{demoArticles.length}</div>
-              <div className="stat-label">Articles Curated</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">
-                {Math.round(demoArticles.reduce((acc, article) => acc + article.growthInsight.relevance, 0) / demoArticles.length)}%
-              </div>
-              <div className="stat-label">Avg Relevance</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">{userProfile.growthGoal}</div>
-              <div className="stat-label">Growth Strategy</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Complete Demo */}
-        <div className="demo-actions">
-          <button 
-            className="action-btn primary"
-            onClick={completeDemo}
-          >
-            Continue to Quick Actions
-          </button>
-        </div>
+          );
+        })}
       </div>
+
+      <button className="ob-btn ob-btn--primary" style={{ alignSelf: 'flex-start' }} onClick={finish}>
+        Continue to Quick Actions →
+      </button>
+
+      <Styles/>
     </div>
   );
 };
+
+const Styles = () => (
+  <style>{`
+    .gn-root { max-width: 680px; }
+
+    /* Scan */
+    .gn-scan { display: flex; flex-direction: column; gap: 8px; }
+    .gn-scan-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; border-radius: var(--radius-md);
+      border: 1px solid var(--border); background: var(--bg-card);
+      transition: all .25s;
+    }
+    .gn-scan-row--active { border-color: var(--border-accent); background: rgba(255,107,53,.05); }
+    .gn-scan-row--done   { opacity: .5; }
+    .gn-scan-row__dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.15); flex-shrink: 0; transition: background .2s;
+    }
+    .gn-scan-row--active .gn-scan-row__dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: gnPulse 1.2s ease-in-out infinite; }
+    .gn-scan-row--done   .gn-scan-row__dot { background: var(--green); }
+    @keyframes gnPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+    .gn-scan-row__text { flex: 1; font-family: var(--font-body); font-size: 13px; color: var(--text-secondary); }
+    .gn-scan-row--active .gn-scan-row__text { color: var(--text-primary); }
+    .gn-scan-row__check { font-size: 12px; font-weight: 700; color: var(--green); }
+
+    /* Stats */
+    .gn-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .gn-stat   { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; cursor: default; }
+    .gn-stat__value {
+      font-family: var(--font-display); font-size: 22px; font-weight: 800;
+      color: var(--accent-text); text-transform: capitalize;
+    }
+    .gn-stat__label { font-family: var(--font-body); font-size: 11px; color: var(--text-muted); text-align: center; }
+
+    /* Articles */
+    .gn-articles { display: flex; flex-direction: column; gap: 8px; }
+    .gn-article {
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .2s !important;
+    }
+    .gn-article--open { border-color: var(--border-accent) !important; background: rgba(255,107,53,.03) !important; }
+    .gn-article__top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      cursor: pointer;
+    }
+    .gn-article__badges { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    .gn-relevance-bar {
+      width: 80px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,.1); overflow: hidden;
+    }
+    .gn-relevance-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-text));
+      transition: width .6s var(--ease-out);
+    }
+    .gn-article__relevance { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .gn-relevance-num { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--accent-text); }
+
+    .gn-article__title {
+      font-family: var(--font-display); font-size: 15px; font-weight: 700;
+      color: var(--text-primary); line-height: 1.35; cursor: pointer;
+      transition: color .15s;
+    }
+    .gn-article__title:hover { color: var(--accent-text); }
+    .gn-article__summary { font-family: var(--font-body); font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+    .gn-article__meta { display: flex; gap: 14px; }
+    .gn-article__time,
+    .gn-article__date { font-family: var(--font-body); font-size: 11px; color: var(--text-muted); }
+
+    .gn-insight {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      display: flex; flex-direction: column; gap: 12px;
+      animation: obFadeUp .25s var(--ease-out) both;
+    }
+    .gn-insight__expl { font-family: var(--font-body); font-size: 13px; font-style: italic; color: var(--text-secondary); line-height: 1.55; }
+    .gn-insight__cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .gn-insight__sublabel { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+    .gn-insight__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .gn-insight__actions { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .gn-insight__actions li { font-family: var(--font-body); font-size: 12px; color: var(--text-secondary); padding-left: 14px; position: relative; line-height: 1.45; }
+    .gn-insight__actions li::before { content: '›'; position: absolute; left: 0; color: var(--accent-text); }
+
+    .gn-article__btns { display: flex; gap: 8px; }
+  `}</style>
+);
 
 export { GrowthNewsDemo };

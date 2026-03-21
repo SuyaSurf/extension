@@ -5,7 +5,7 @@ import './SuyaBot.css';
    Types
    ===================================================== */
 export type SuyaMode =
-  | 'awake' | 'idle' | 'sleeping' | 'offline' | 'bored';
+  | 'awake' | 'idle' | 'sleeping' | 'offline' | 'bored' | 'shrinked';
 
 export type SuyaExpression =
   | 'neutral' | 'happy' | 'thinking' | 'thinking_hard'
@@ -13,6 +13,17 @@ export type SuyaExpression =
 
 type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 interface Position { x: number; y: number; corner: Corner; }
+
+interface DragState {
+  isDragging:       boolean;
+  startX:           number;
+  startY:           number;
+  originBotX:       number;
+  originBotY:       number;
+  hasMoved:         boolean;
+  lastDragTime:     number | null;
+  recoveryTimerId:  ReturnType<typeof setTimeout> | null;
+}
 
 type BubblePlacement = 'top' | 'bottom' | 'left' | 'right';
 interface BubblePosition {
@@ -33,6 +44,9 @@ export interface SuyaBotProps {
   onInteraction?:  () => void;
   highlightTarget?: HTMLElement | null;
   fixedPosition?:  Position;
+  dragRecoveryMinutes?: number;
+  shrinkOnDrag?:        boolean;
+  onModeChange?: (mode: SuyaMode) => void;
 }
 
 /* =====================================================
@@ -178,6 +192,29 @@ const CoveringHand: React.FC<{ p: string; flip?: boolean; cls?: string }> = ({ p
 interface FaceProps { expr: SuyaExpression; mode: SuyaMode; p: string; }
 
 const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
+
+  /* ─────────── SHRINKED ─────────── */
+  if (mode === 'shrinked') return (
+    <svg width="20" height="24" viewBox="0 0 20 24" fill="none" overflow="visible">
+      <defs>
+        <radialGradient id={`${p}orb_s`} cx="32%" cy="28%" r="65%">
+          <stop offset="0%"   stopColor="#FFE070"/>
+          <stop offset="100%" stopColor="#FF6B1A"/>
+        </radialGradient>
+      </defs>
+      {/* Just the antenna + orb */}
+      <line x1="10" y1="3" x2="10" y2="7"  stroke="#C8804A" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="10" cy="2" r="3.5" fill={`url(#${p}orb_s)`}/>
+      <circle cx="9"  cy="1" r=".9"  fill="rgba(255,255,255,.6)"/>
+      {/* Tiny face stub */}
+      <circle cx="10" cy="16" r="8.5" fill="#FFD49A" stroke="#D88040" strokeWidth=".8"/>
+      {/* dot eyes */}
+      <circle cx="7"  cy="15.5" r="1.8" fill="#1A0A02"/>
+      <circle cx="13" cy="15.5" r="1.8" fill="#1A0A02"/>
+      {/* smile */}
+      <path d="M7 19 Q10 21 13 19" stroke="#A04820" strokeWidth="1" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
 
   /* ─────────── OFFLINE ─────────── */
   if (mode === 'offline') return (
@@ -499,6 +536,9 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   onInteraction,
   highlightTarget,
   fixedPosition,
+  dragRecoveryMinutes = 60,
+  shrinkOnDrag = true,
+  onModeChange,
 }) => {
   const uid = useRef(`sb${++_uid}`).current;
   const [pos,       setPos]    = useState<Position>({ x: 20, y: 20, corner: 'bottom-right' });
@@ -510,6 +550,24 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   const botRef    = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const prevPos   = useRef<Position | null>(null);
+  
+  // Drag state refs
+  const dragRef = useRef<DragState>({
+    isDragging:      false,
+    startX:          0,
+    startY:          0,
+    originBotX:      0,
+    originBotY:      0,
+    hasMoved:        false,
+    lastDragTime:    null,
+    recoveryTimerId: null,
+  });
+
+  // Remember mode before shrink so we can restore it
+  const preShrinkMode = useRef<SuyaMode>('awake');
+  
+  // Prop defaults
+  const recoveryMs = dragRecoveryMinutes * 60 * 1000;
 
   const findOptimal = useCallback((): Position => {
     const pad = 20, sw = window.innerWidth, sh = window.innerHeight;
@@ -557,6 +615,86 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
       setTimeout(() => setWhoosh('idle'), WHOOSH_DUR);
     }, WHOOSH_DUR * 0.52);
   };
+
+  // Drag handlers
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (mode === 'offline') return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const d = dragRef.current;
+    d.isDragging = true;
+    d.startX = e.clientX;
+    d.startY = e.clientY;
+    d.originBotX = pos.x;
+    d.originBotY = pos.y;
+    d.hasMoved = false;
+
+    if (d.recoveryTimerId) {
+      clearTimeout(d.recoveryTimerId);
+      d.recoveryTimerId = null;
+    }
+  }, [mode, pos]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d.isDragging) return;
+
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+
+    if (!d.hasMoved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      d.hasMoved = true;
+      if (shrinkOnDrag && mode !== 'shrinked') {
+        preShrinkMode.current = mode;
+        if (onModeChange) {
+          onModeChange('shrinked');
+        }
+      }
+    }
+
+    if (d.hasMoved) {
+      const sw = window.innerWidth, sh = window.innerHeight;
+      const newX = Math.max(0, Math.min(sw - 68,  d.originBotX + dx));
+      const newY = Math.max(0, Math.min(sh - 80,  d.originBotY + dy));
+      setPos(prev => ({ ...prev, x: newX, y: newY }));
+    }
+  }, [shrinkOnDrag, mode, onModeChange]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d.isDragging) return;
+    d.isDragging = false;
+    d.lastDragTime = Date.now();
+
+    if (d.hasMoved && shrinkOnDrag) {
+      // Snap to nearest edge
+      const sw = window.innerWidth, sh = window.innerHeight;
+      const cx = pos.x + 32, cy = pos.y + 38;
+      const snapX = cx < sw / 2 ? 12 : sw - 80;
+      const snapY = cy < sh / 2 ? 12 : sh - 92;
+      // Animate snap
+      triggerWhoosh(pos, { x: snapX, y: snapY, corner: 'bottom-right' });
+
+      // Schedule recovery after configured time
+      d.recoveryTimerId = setTimeout(() => {
+        if (onModeChange) {
+          onModeChange(preShrinkMode.current);
+        }
+        d.recoveryTimerId = null;
+      }, recoveryMs);
+    }
+  }, [pos, shrinkOnDrag, recoveryMs, onModeChange]);
+
+  // Instant-expand on hover/click in shrinked mode
+  const onPointerEnterShrinked = useCallback(() => {
+    if (mode !== 'shrinked') return;
+    if (onModeChange) {
+      onModeChange(preShrinkMode.current);
+    }
+    if (dragRef.current.recoveryTimerId) {
+      clearTimeout(dragRef.current.recoveryTimerId);
+      dragRef.current.recoveryTimerId = null;
+    }
+  }, [mode, onModeChange]);
 
   useEffect(() => {
     if (mode === 'sleeping' || mode === 'offline' || mode === 'idle' || mode === 'bored') return;
@@ -728,6 +866,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   const modeClass = {
     idle: 'mode-idle', sleeping: 'mode-sleeping',
     offline: 'mode-offline', bored: 'mode-bored', awake: '',
+    shrinked: 'mode-shrinked',
   }[mode];
 
   const stateClass = [
@@ -779,9 +918,17 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
         ref={botRef}
         data-suya-bot="true"
         className={`suya-bot ${stateClass}`}
-        style={{ left: `${pos.x}px`, top: `${pos.y}px` }}
+        style={{ 
+          left: `${pos.x}px`, 
+          top: `${pos.y}px`,
+          cursor: dragRef.current.isDragging ? 'grabbing' : 'grab'
+        }}
         onClick={handleClick}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleClick()}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerEnter={onPointerEnterShrinked}
         role="button"
         tabIndex={0}
         aria-label="Suya Bot"

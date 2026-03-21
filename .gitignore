@@ -1,0 +1,19 @@
+# Dependencies
+**/node_modules/
+
+# Extension build artifacts
+extension/build/
+extension/dist/
+extension/dist-crx/
+
+# UI build artifacts (if any)
+extension/ui/dist/
+extension/ui/.cache/
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+.windsurf/
+
+# Logs
+**/logs/

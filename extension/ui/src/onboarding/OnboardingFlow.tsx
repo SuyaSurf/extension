@@ -6,6 +6,7 @@ export interface ApiKeyStatus {
 
 import React, { useState, useEffect } from 'react';
 import './OnboardingFlow.css';
+import './steps/onboarding.css';
 import SuyaBot, { SuyaMode, SuyaExpression } from '@/components/SuyaBot';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { HistoryAnalysisStep } from './steps/HistoryAnalysisStep';
@@ -141,6 +142,15 @@ export interface FormProfile {
   preferences: Record<string, any>;
 }
 
+interface PersistedSettings {
+  newsSources: string[];
+  newsUpdateFrequencyMinutes: number;
+  notificationsEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  apiKeys: { openai: string; anthropic: string; deepseek: string; groq: string };
+}
+
 const OnboardingFlow: React.FC = () => {
   const [botState, setBotState] = useState({
     expression: 'happy' as SuyaExpression,
@@ -233,6 +243,27 @@ const OnboardingFlow: React.FC = () => {
         }
       }
     }));
+  };
+
+  const buildPersistedSettings = (): PersistedSettings => {
+    const recommendedSources = onboardingState.userProfile.recommendedSources ?? [];
+    const selectedSourceIds = recommendedSources
+      .map(source => source.id)
+      .filter(Boolean);
+
+    return {
+      newsSources: selectedSourceIds,
+      newsUpdateFrequencyMinutes: onboardingState.userProfile.updateFrequency === 'daily' ? 1440 : 30,
+      notificationsEnabled: true,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '08:00',
+      apiKeys: {
+        openai: onboardingState.apiKeys.openai?.connected ? 'configured' : '',
+        anthropic: onboardingState.apiKeys.anthropic?.connected ? 'configured' : '',
+        deepseek: onboardingState.apiKeys.deepseek?.connected ? 'configured' : '',
+        groq: onboardingState.apiKeys.groq?.connected ? 'configured' : '',
+      }
+    };
   };
 
   const completeSetup = () => {
@@ -337,8 +368,14 @@ const OnboardingFlow: React.FC = () => {
   const persistOnboarding = async (payload: Record<string, unknown>) => {
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       await chrome.storage.local.set(payload);
+      if (chrome.storage?.sync) {
+        await chrome.storage.sync.set(payload);
+      }
     } else {
       localStorage.setItem('onboardingFlowState', JSON.stringify(payload));
+      Object.entries(payload).forEach(([key, value]) => {
+        localStorage.setItem(key, JSON.stringify(value));
+      });
     }
   };
 
@@ -349,10 +386,14 @@ const OnboardingFlow: React.FC = () => {
 
     setIsCompleting(true);
     try {
+      const settings = buildPersistedSettings();
+
       await persistOnboarding({
         hasSeenOnboarding: true,
         onboardingCompleted: Date.now(),
-        userProfile: onboardingState.userProfile
+        userProfile: onboardingState.userProfile,
+        settings,
+        suyaSettings: settings
       });
 
       guideStep('happy', 'All set! I will keep curating growth fuel for you.');

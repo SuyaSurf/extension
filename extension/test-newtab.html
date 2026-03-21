@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tab Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .test-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+        }
+        .success {
+            background: rgba(0, 255, 0, 0.2);
+            color: #ccffcc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h1>New Tab Override Test</h1>
+        <p>Testing Chrome extension newtab override functionality...</p>
+    </div>
+    
+    <div id="test-results"></div>
+    
+    <div id="root">
+        <div class="loading">Loading Suya...</div>
+    </div>
+
+    <script>
+        const results = document.getElementById('test-results');
+        
+        function addResult(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `test-info ${isError ? 'error' : 'success'}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        // Test 1: Check if running as extension
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            addResult('✓ Chrome extension APIs available');
+            
+            // Test 2: Check manifest
+            try {
+                const manifest = chrome.runtime.getManifest();
+                addResult(`✓ Extension loaded: ${manifest.name} v${manifest.version}`);
+                
+                if (manifest.chrome_url_overrides && manifest.chrome_url_overrides.newtab) {
+                    addResult(`✓ New tab override configured: ${manifest.chrome_url_overrides.newtab}`);
+                } else {
+                    addResult('✗ No new tab override found in manifest', true);
+                }
+            } catch (e) {
+                addResult(`✗ Manifest error: ${e.message}`, true);
+            }
+        } else {
+            addResult('⚠ Not running in extension context (testing in browser)');
+        }
+        
+        // Test 3: Load scripts
+        addResult('Loading extension scripts...');
+        
+        // Load vendors
+        const vendorScript = document.createElement('script');
+        vendorScript.src = '../dist/vendors/vendors.bundle.js';
+        vendorScript.onload = () => addResult('✓ Vendors bundle loaded');
+        vendorScript.onerror = () => addResult('✗ Vendors bundle failed to load', true);
+        document.head.appendChild(vendorScript);
+        
+        // Load 698 bundle
+        const bundle698 = document.createElement('script');
+        bundle698.src = '../dist/698/698.bundle.js';
+        bundle698.onload = () => addResult('✓ 698 bundle loaded');
+        bundle698.onerror = () => addResult('✗ 698 bundle failed to load', true);
+        document.head.appendChild(bundle698);
+        
+        // Load newtab bundle
+        const newtabScript = document.createElement('script');
+        newtabScript.src = '../dist/newtab/newtab.bundle.js';
+        newtabScript.onload = () => addResult('✓ Newtab bundle loaded');
+        newtabScript.onerror = () => addResult('✗ Newtab bundle failed to load', true);
+        document.head.appendChild(newtabScript);
+        
+        // Monitor for React app
+        setTimeout(() => {
+            const root = document.getElementById('root');
+            if (root && root.children.length > 1) {
+                addResult('✓ React app rendered successfully');
+            } else {
+                addResult('⚠ React app may still be loading or failed to render', true);
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

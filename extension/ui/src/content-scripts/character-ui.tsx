@@ -15,6 +15,10 @@ interface PageContext {
   primaryText: string
   formCount?: number
   fillableFields?: number
+  formType?: string
+  isSignInPage?: boolean
+  isSearchPage?: boolean
+  shouldAppear?: boolean
 }
 
 type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake' | 'fill-forms' | 'scan-forms' | 'save-profile' | 'preview-fill'
@@ -87,24 +91,49 @@ function getPrimaryText(): string {
 }
 
 function buildPageContext(): PageContext {
-  const hasForms = Boolean(document.querySelector('form'))
+  const hasForms = Boolean(document.querySelector('form')) || (window as any).FormScanner?.hasFormsOnPage?.();
   let formCount = 0
   let fillableFields = 0
+  let formType = 'none'
+  let isSignInPage = false
+  let isSearchPage = false
+  let shouldAppear = false
   
-  // If formfiller is available, get more accurate counts
+  // Check for Google RSVP forms specifically
+  const url = window.location.href.toLowerCase()
+  const isGoogleRSVP = /rsvp\.withgoogle\.com|google.*events.*registration/.test(url)
+  
+  // If formfiller is available, get more accurate counts and analysis
   if ((window as any).FormScanner) {
     try {
-      const scanResult = (window as any).FormScanner.scan()
+      const scanResult = (window as any).FormScanner.scan();
       formCount = scanResult.fields.length
-      fillableFields = scanResult.visibleFields.length
+      fillableFields = (window as any).FormScanner.getFillableFieldCount(scanResult)
+      formType = (window as any).FormScanner.detectFormType(scanResult)
+      isSignInPage = (window as any).FormScanner.isSignInPage()
+      isSearchPage = (window as any).FormScanner.isSearchPage()
+      
+      // Special handling for Google RSVP forms
+      if (isGoogleRSVP && scanResult.eventForms?.length > 0) {
+        formType = 'application'
+        shouldAppear = true
+      } else {
+        // Determine if bot should appear based on form type and user preferences
+        shouldAppear = determineShouldAppear(formType, isSignInPage, isSearchPage, fillableFields)
+      }
+      
     } catch (e) {
       // Fallback to basic detection
       formCount = document.querySelectorAll('form').length
       fillableFields = document.querySelectorAll('input:not([type="hidden"]), textarea, select').length
+      formType = isGoogleRSVP ? 'application' : 'unknown'
+      shouldAppear = isGoogleRSVP || fillableFields > 0
     }
   } else {
     formCount = document.querySelectorAll('form').length
     fillableFields = document.querySelectorAll('input:not([type="hidden"]), textarea, select').length
+    formType = isGoogleRSVP ? 'application' : 'unknown'
+    shouldAppear = isGoogleRSVP || fillableFields > 0
   }
 
   return {
@@ -119,8 +148,54 @@ function buildPageContext(): PageContext {
     hasInputs: Boolean(document.querySelector('input, textarea, select')),
     primaryText: getPrimaryText(),
     formCount,
-    fillableFields
+    fillableFields,
+    formType,
+    isSignInPage,
+    isSearchPage,
+    shouldAppear
   }
+}
+
+// Determine if the bot should appear based on form analysis and preferences
+function determineShouldAppear(formType: string, isSignInPage: boolean, isSearchPage: boolean, fillableFields: number): boolean {
+  // Don't appear on search-dominant pages
+  if (isSearchPage || formType === 'search') {
+    return false
+  }
+  
+  // Don't appear on sign-in pages unless user has enabled auto-sign-in
+  if (isSignInPage || formType === 'signin') {
+    // TODO: Check user preferences for auto-sign-in
+    // For now, don't appear on sign-in pages
+    return false
+  }
+  
+  // Appear on application, registration, contact, and mixed forms
+  if (['application', 'contact', 'mixed', 'payment'].includes(formType)) {
+    return true
+  }
+  
+  // Appear on wizard forms
+  if (formType === 'wizard') {
+    return true
+  }
+  
+  // Appear on conditional forms (they have dynamic content)
+  if (formType === 'conditional') {
+    return true
+  }
+  
+  // For dynamic-potential, appear conservatively
+  if (formType === 'dynamic-potential') {
+    return true // Show that we're monitoring for potential forms
+  }
+  
+  // Appear if there are fillable fields but it's not a search page
+  if (fillableFields > 0 && !isSearchPage) {
+    return true
+  }
+  
+  return false
 }
 
 function findHighlightTarget(command: PopupCommand): HTMLElement | null {
@@ -142,14 +217,45 @@ function findHighlightTarget(command: PopupCommand): HTMLElement | null {
 }
 
 function summarizeContext(context: PageContext): string {
-  const summaryParts = [
-    `${context.title || 'This page'} looks like a ${context.type}.`,
-    context.hasForms ? `I found ${context.formCount || 'some'} form${(context.formCount || 0) !== 1 ? 's' : ''} with ${context.fillableFields || 'some'} fillable fields.` : '',
-    context.hasButtons ? 'There are actionable controls on the page.' : '',
-    context.primaryText ? `Preview: ${context.primaryText}` : ''
-  ].filter(Boolean)
+  // If bot shouldn't appear, return empty string
+  if (!context.shouldAppear) {
+    return ''
+  }
 
-  return summaryParts.join(' ')
+  // Provide contextual messages based on form type
+  switch (context.formType) {
+    case 'application':
+      return `I found an application form with ${context.fillableFields || 'several'} fields to fill. I can help you complete it!`
+    
+    case 'contact':
+      return `This looks like a contact form. I can help you fill it with your information.`
+    
+    case 'payment':
+      return `I found a payment form with ${context.fillableFields || 'several'} fields. I can help you fill the non-sensitive information.`
+    
+    case 'wizard':
+      return `This is a multi-step form! I can help you fill each step as you progress.`
+    
+    case 'conditional':
+      return `This form has dynamic sections. I'll monitor for new fields that appear.`
+    
+    case 'dynamic-potential':
+      return `I detect potential form content that might appear. I'll keep watching!`
+    
+    case 'mixed':
+      return `I found a form with ${context.fillableFields || 'several'} fillable fields. I can help you complete it!`
+    
+    default:
+      // Generic message for other form types
+      const summaryParts = [
+        `${context.title || 'This page'} looks like a ${context.type}.`,
+        context.hasForms ? `I found ${context.formCount || 'some'} form${(context.formCount || 0) !== 1 ? 's' : ''} with ${context.fillableFields || 'some'} fillable fields.` : '',
+        context.hasButtons ? 'There are actionable controls on the page.' : '',
+        context.primaryText ? `Preview: ${context.primaryText}` : ''
+      ].filter(Boolean)
+
+      return summaryParts.join(' ')
+  }
 }
 
 const CharacterRuntime: React.FC = () => {
@@ -163,6 +269,19 @@ const CharacterRuntime: React.FC = () => {
   const [highlightTarget, setHighlightTarget] = React.useState<HTMLElement | null>(null)
   const [lastContext, setLastContext] = React.useState<PageContext>(() => buildPageContext())
   const [formFillerLoaded, setFormFillerLoaded] = React.useState(false)
+
+  // Update initial message based on context analysis
+  React.useEffect(() => {
+    const context = lastContext
+    if (context.shouldAppear && context.formType && context.formType !== 'none') {
+      const contextualMessage = summarizeContext(context)
+      if (contextualMessage) {
+        setMessage(contextualMessage)
+      }
+    } else if (!context.shouldAppear) {
+      setMessage('I\'m monitoring this page. Wake me if you need help with anything!')
+    }
+  }, [lastContext.shouldAppear, lastContext.formType])
 
   // Initialize formfiller dependencies
   React.useEffect(() => {
@@ -487,17 +606,75 @@ const CharacterRuntime: React.FC = () => {
   }, [pulseMode, runCommand])
 
   React.useEffect(() => {
-    const observer = new MutationObserver(() => {
-      window.clearTimeout((window as typeof window & { __suyaObserverTimer?: number }).__suyaObserverTimer)
-      ;(window as typeof window & { __suyaObserverTimer?: number }).__suyaObserverTimer = window.setTimeout(() => {
-        const next = buildPageContext()
-        setLastContext(next)
-      }, 900)
+    const observer = new MutationObserver((mutations) => {
+      // Check if mutations might affect form detection
+      const significantFormChange = mutations.some(mutation => {
+        // Check for new form elements
+        const addedNodes = Array.from(mutation.addedNodes)
+        return addedNodes.some(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element
+            // Check for form-related elements
+            return (
+              element.tagName === 'FORM' ||
+              element.tagName === 'INPUT' ||
+              element.tagName === 'TEXTAREA' ||
+              element.tagName === 'SELECT' ||
+              element.tagName === 'BUTTON' ||
+              element.querySelector?.('form, input, textarea, select, button') ||
+              element.className?.includes('form') ||
+              element.className?.includes('registration') ||
+              element.className?.includes('application') ||
+              element.getAttribute('data-form') !== null
+            )
+          }
+          return false
+        })
+      })
+
+      // Only update if there might be form changes
+      if (significantFormChange) {
+        window.clearTimeout((window as typeof window & { __suyaObserverTimer?: number }).__suyaObserverTimer)
+        ;(window as typeof window & { __suyaObserverTimer?: number }).__suyaObserverTimer = window.setTimeout(() => {
+          const next = buildPageContext()
+          const previous = lastContext
+          
+          // Check if form detection results changed
+          const formDetectionChanged = 
+            next.formType !== previous.formType ||
+            next.shouldAppear !== previous.shouldAppear ||
+            next.fillableFields !== previous.fillableFields ||
+            next.formCount !== previous.formCount
+          
+          setLastContext(next)
+          
+          // Update message if form detection changed
+          if (formDetectionChanged) {
+            if (next.shouldAppear && next.formType && next.formType !== 'none') {
+              const contextualMessage = summarizeContext(next)
+              if (contextualMessage) {
+                setMessage(contextualMessage)
+                // Briefly show thinking state to indicate re-analysis
+                setIsThinkingHard(true)
+                window.setTimeout(() => setIsThinkingHard(false), 800)
+              }
+            } else if (!next.shouldAppear) {
+              setMessage('I\'m monitoring this page. Wake me if you need help with anything!')
+            }
+          }
+        }, 900)
+      }
     })
 
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true, 
+      attributes: true, // Also watch for attribute changes
+      attributeFilter: ['class', 'style', 'hidden', 'disabled'] // Watch for visibility changes
+    })
+    
     return () => observer.disconnect()
-  }, [])
+  }, [lastContext])
 
   return (
     <SuyaBot
@@ -517,8 +694,11 @@ const CharacterRuntime: React.FC = () => {
         }
 
         const context = lastContext
-        if (context.hasForms && formFillerLoaded) {
-          setMessage(`I found ${context.formCount || 'forms'} on this page. I can help you fill them!`)
+        if (!context.shouldAppear) {
+          setMessage('This page doesn\'t seem to have forms I can help with. I\'m still monitoring if you need me!')
+        } else if (context.hasForms && formFillerLoaded) {
+          const contextualMessage = summarizeContext(context)
+          setMessage(contextualMessage || `I found ${context.formCount || 'forms'} on this page. I can help you fill them!`)
         } else {
           setMessage(summarizeContext(context))
         }

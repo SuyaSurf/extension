@@ -36,6 +36,89 @@ window.DomUtils = (() => {
     return inputs;
   }
 
+  // Enhanced form detection for modern applications
+  function detectModernForms() {
+    const formContainers = [];
+    
+    // Look for common form container patterns
+    const formSelectors = [
+      'form',
+      '[class*="form"]',
+      '[class*="registration"]',
+      '[class*="application"]',
+      '[class*="signup"]',
+      '[class*="contact"]',
+      '[id*="form"]',
+      '[id*="registration"]',
+      '[id*="application"]',
+      '[data-form]',
+      '[data-form-id]',
+      '.rsvp-form',
+      '.registration-form',
+      '.application-form'
+    ];
+
+    for (const selector of formSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          if (isVisible(el) && hasInteractiveElements(el)) {
+            formContainers.push(el);
+          }
+        }
+      } catch (e) {
+        console.warn('Invalid selector:', selector);
+      }
+    }
+
+    return formContainers;
+  }
+
+  // Check if a container has interactive form elements
+  function hasInteractiveElements(container) {
+    const interactiveSelectors = [
+      'input:not([type="hidden"])',
+      'textarea',
+      'select',
+      'button[type="submit"]',
+      '[role="button"]',
+      '[contenteditable="true"]'
+    ];
+
+    for (const selector of interactiveSelectors) {
+      if (container.querySelector(selector)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Detect RSVP and event registration forms specifically
+  function detectEventForms() {
+    const url = window.location.href.toLowerCase();
+    const title = document.title.toLowerCase();
+    
+    // URL patterns for event forms
+    const eventPatterns = [
+      /rsvp|registration|register|signup|sign.*up/,
+      /event|conference|meetup|workshop|webinar/,
+      /google.*events|withgoogle\.com/,
+      /forms\.google\.com/
+    ];
+    
+    const urlMatch = eventPatterns.some(pattern => pattern.test(url));
+    const titleMatch = eventPatterns.some(pattern => pattern.test(title));
+    
+    if (urlMatch || titleMatch) {
+      return detectModernForms().filter(container => {
+        const text = container.textContent?.toLowerCase() || '';
+        return /register|signup|attend|join|rsvp/.test(text);
+      });
+    }
+    
+    return [];
+  }
+
   // Check if element is visible to user
   function isVisible(el) {
     if (!el) return false;
@@ -210,6 +293,7 @@ window.DomUtils = (() => {
   return {
     getAllInputs, isVisible, isInViewportish, getLabels,
     getNearbyText, getSelectOptions, scrollIntoView,
-    waitForElement, sleep, formFingerprint, normaliseUrl
+    waitForElement, sleep, formFingerprint, normaliseUrl,
+    detectModernForms, hasInteractiveElements, detectEventForms
   };
 })();

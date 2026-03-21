@@ -10,346 +10,363 @@ interface SmartQuestioningStepProps {
   userProfile: Partial<UserProfile>;
 }
 
+interface Option {
+  value: string;
+  label: string;
+  hint?: string;
+  icon?: string;
+  domains?: string[];
+  strategy?: 'deepen' | 'expand' | 'explore';
+  content?: 'how-to' | 'analysis' | 'summaries';
+}
+
 interface Question {
   id: string;
   question: string;
-  type: 'multiple' | 'single' | 'text';
-  options?: Array<{
-    value: string;
-    label: string;
-    domains?: string[];
-    strategy?: 'deepen' | 'expand' | 'explore';
-    content?: 'how-to' | 'analysis' | 'summaries';
-  }>;
-  explanation?: string;
+  type: 'multiple' | 'single';
+  explanation: string;
+  options: Option[];
 }
 
-const DiscoveryQuestions: Question[] = [
+const QUESTIONS: Question[] = [
   {
     id: 'career_focus',
-    question: "What's your primary career focus right now?",
+    question: "What's your primary career focus?",
+    explanation: "Shapes the domain of content I curate for you.",
     type: 'single',
     options: [
-      { 
-        value: 'tech_dev', 
-        label: 'Software Development', 
-        domains: ['technology'] 
-      },
-      { 
-        value: 'business_lead', 
-        label: 'Business Leadership', 
-        domains: ['business', 'finance'] 
-      },
-      { 
-        value: 'creative_work', 
-        label: 'Creative Work', 
-        domains: ['design', 'marketing'] 
-      },
-      { 
-        value: 'research', 
-        label: 'Research/Academia', 
-        domains: ['science', 'education'] 
-      }
+      { value: 'tech_dev',      label: 'Software Development',  icon: '💻', domains: ['technology'] },
+      { value: 'business_lead', label: 'Business & Leadership', icon: '📊', domains: ['business', 'finance'] },
+      { value: 'creative_work', label: 'Creative & Design',     icon: '🎨', domains: ['design', 'marketing'] },
+      { value: 'research',      label: 'Research / Academia',   icon: '🔬', domains: ['science', 'education'] },
     ],
-    explanation: 'This helps me understand your professional domain for content curation.'
   },
   {
     id: 'growth_goal',
     question: "What type of growth are you seeking?",
+    explanation: "I'll tune content depth and breadth to match your goal.",
     type: 'single',
     options: [
-      { 
-        value: 'skills', 
-        label: 'New Skills', 
-        strategy: 'expand' 
-      },
-      { 
-        value: 'expertise', 
-        label: 'Deeper Expertise', 
-        strategy: 'deepen' 
-      },
-      { 
-        value: 'trends', 
-        label: 'Stay Current', 
-        strategy: 'explore' 
-      }
+      { value: 'skills',    label: 'New Skills',      icon: '🌱', hint: 'Expand into adjacent areas',      strategy: 'expand'  },
+      { value: 'expertise', label: 'Deeper Expertise', icon: '🎯', hint: 'Master your core domain',         strategy: 'deepen'  },
+      { value: 'trends',    label: 'Stay Current',     icon: '📡', hint: 'Follow emerging developments',    strategy: 'explore' },
     ],
-    explanation: 'I\'ll tailor content to help you expand, deepen, or explore your knowledge.'
   },
   {
     id: 'learning_style',
     question: "How do you prefer to learn?",
+    explanation: "I'll source content in the formats you actually enjoy.",
     type: 'multiple',
     options: [
-      { 
-        value: 'practical', 
-        label: 'Practical tutorials', 
-        content: 'how-to' 
-      },
-      { 
-        value: 'theoretical', 
-        label: 'Deep dive articles', 
-        content: 'analysis' 
-      },
-      { 
-        value: 'quick', 
-        label: 'Quick summaries', 
-        content: 'summaries' 
-      }
+      { value: 'practical',    label: 'Practical tutorials', icon: '🛠️', content: 'how-to'   },
+      { value: 'theoretical',  label: 'Deep-dive analysis',  icon: '📖', content: 'analysis'  },
+      { value: 'quick',        label: 'Quick summaries',     icon: '⚡', content: 'summaries' },
     ],
-    explanation: 'I\'ll find content that matches your preferred learning format.'
   },
   {
     id: 'time_commitment',
-    question: "How much time can you dedicate to learning per week?",
+    question: "How much learning time per week?",
+    explanation: "Helps me size content and learning paths appropriately.",
     type: 'single',
     options: [
-      { value: '1-2h', label: '1-2 hours (Light)' },
-      { value: '3-5h', label: '3-5 hours (Moderate)' },
-      { value: '6-10h', label: '6-10 hours (Dedicated)' },
-      { value: '10h+', label: '10+ hours (Intensive)' }
+      { value: '1-2h',  label: '1–2 hrs',  hint: 'Light',      icon: '🕐' },
+      { value: '3-5h',  label: '3–5 hrs',  hint: 'Moderate',   icon: '🕓' },
+      { value: '6-10h', label: '6–10 hrs', hint: 'Dedicated',  icon: '🕖' },
+      { value: '10h+',  label: '10+ hrs',  hint: 'Intensive',  icon: '🕙' },
     ],
-    explanation: 'This helps me recommend appropriately sized content and learning paths.'
   },
   {
     id: 'content_frequency',
     question: "How often would you like curated content?",
+    explanation: "I'll adjust delivery timing to fit your rhythm.",
     type: 'single',
     options: [
-      { value: 'daily', label: 'Daily updates' },
-      { value: 'weekly', label: 'Weekly digest' },
-      { value: 'biweekly', label: 'Bi-weekly highlights' },
-      { value: 'monthly', label: 'Monthly deep dive' }
+      { value: 'daily',     label: 'Daily',      hint: 'Fresh picks every morning', icon: '☀️' },
+      { value: 'weekly',    label: 'Weekly',      hint: 'A rich digest on Mondays',  icon: '📅' },
+      { value: 'biweekly',  label: 'Bi-weekly',   hint: 'Highlights twice a month',  icon: '🗓️' },
+      { value: 'monthly',   label: 'Monthly',     hint: 'Deep-dive once a month',    icon: '🌕' },
     ],
-    explanation: 'I\'ll adjust the frequency of your personalized news delivery.'
-  }
+  },
 ];
 
 const SmartQuestioningStep: React.FC<SmartQuestioningStepProps> = ({
-  guideStep, 
-  nextStep, 
-  completeStep, 
-  updateUserProfile,
-  userProfile
+  guideStep, nextStep, completeStep, updateUserProfile, userProfile,
 }) => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [currentIdx, setCurrentIdx]     = useState(0);
+  const [answers, setAnswers]           = useState<Record<string, any>>({});
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleAnswer = async (questionId: string, answer: any) => {
-    const question = DiscoveryQuestions.find(q => q.id === questionId);
-    
-    // Update answers
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
-    
-    // Show processing state
+  const question = QUESTIONS[currentIdx];
+  const progress = ((currentIdx + 1) / QUESTIONS.length) * 100;
+
+  const handleSingle = async (qId: string, value: string) => {
+    if (isProcessing) return;
     setIsProcessing(true);
-    guideStep('eating', `Great choice! Let me understand that...`);
-    
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Update user profile based on answer
-    const profileUpdate: Partial<UserProfile> = {};
-    
-    switch (questionId) {
-      case 'career_focus':
-        const selectedOption = question?.options?.find(opt => opt.value === answer);
-        profileUpdate.careerFocus = answer;
-        if (selectedOption?.domains) {
-          profileUpdate.contentTypes = selectedOption.domains;
-        }
-        guideStep('happy', `Perfect! I'll focus on ${selectedOption?.label} content for you.`);
-        break;
-        
-      case 'growth_goal':
-        const growthOption = question?.options?.find(opt => opt.value === answer);
-        profileUpdate.growthGoal = growthOption?.strategy;
-        guideStep('thinking', `I'll help you ${answer} your knowledge and skills.`);
-        break;
-        
-      case 'learning_style':
-        const learningOptions = Array.isArray(answer) ? answer : [answer];
-        const contentTypes = learningOptions.map(style => {
-          const option = question?.options?.find(opt => opt.value === style);
-          return option?.content;
-        }).filter(Boolean);
-        
-        profileUpdate.learningStyle = learningOptions.join(',');
-        if (contentTypes.length > 0) {
-          profileUpdate.contentTypes = [...(profileUpdate.contentTypes || []), ...(contentTypes.filter(Boolean) as string[])];
-        }
-        guideStep('happy', `I'll find ${learningOptions.join(' and ')} content for you!`);
-        break;
-        
-      case 'time_commitment':
-        profileUpdate.updateFrequency = answer;
-        guideStep('thinking', `I'll adjust content depth for your ${answer} schedule.`);
-        break;
-        
-      case 'content_frequency':
-        profileUpdate.updateFrequency = answer;
-        guideStep('happy', `You'll get curated content ${answer}!`);
-        break;
+    setAnswers(prev => ({ ...prev, [qId]: value }));
+    guideStep('eating', 'Got it, processing your answer…');
+
+    await new Promise(r => setTimeout(r, 900));
+
+    const q = QUESTIONS.find(q => q.id === qId);
+    const opt = q?.options.find(o => o.value === value);
+    const update: Partial<UserProfile> = {};
+
+    if (qId === 'career_focus') {
+      update.careerFocus = value;
+      if (opt?.domains) update.contentTypes = opt.domains;
+      guideStep('happy', `${opt?.label} — great choice! I'll focus on that domain.`);
+    } else if (qId === 'growth_goal') {
+      update.growthGoal = opt?.strategy;
+      guideStep('thinking', `I'll help you ${value} your knowledge and skills.`);
+    } else if (qId === 'time_commitment') {
+      update.updateFrequency = value;
+      guideStep('thinking', `I'll match content depth to your ${value} schedule.`);
+    } else if (qId === 'content_frequency') {
+      update.updateFrequency = value;
+      guideStep('happy', `You'll get curated content ${value}!`);
     }
-    
-    updateUserProfile(profileUpdate);
+
+    updateUserProfile(update);
+    advance();
+  };
+
+  const handleMultiToggle = (qId: string, value: string) => {
+    const current: string[] = Array.isArray(answers[qId]) ? answers[qId] : [];
+    const next = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value];
+    setAnswers(prev => ({ ...prev, [qId]: next }));
+  };
+
+  const confirmMulti = async () => {
+    if (isProcessing) return;
+    const values: string[] = Array.isArray(answers[question.id]) ? answers[question.id] : [];
+    if (values.length === 0) return;
+    setIsProcessing(true);
+
+    const q = QUESTIONS[currentIdx];
+    const contentTypes = values.map(v => q.options.find(o => o.value === v)?.content).filter(Boolean) as string[];
+    updateUserProfile({ learningStyle: values.join(','), contentTypes });
+    guideStep('happy', `I'll find ${values.join(' and ')} content for you!`);
+
+    await new Promise(r => setTimeout(r, 900));
+    advance();
+  };
+
+  const advance = () => {
     setIsProcessing(false);
-    
-    // Move to next question or complete
-    if (currentQuestion < DiscoveryQuestions.length - 1) {
+    if (currentIdx < QUESTIONS.length - 1) {
       setTimeout(() => {
-        setCurrentQuestion(prev => prev + 1);
-        guideStep('thinking', 'Let me ask you something else...');
-      }, 1500);
+        setCurrentIdx(i => i + 1);
+        guideStep('thinking', 'Let me ask you something else…');
+      }, 600);
     } else {
-      // Complete questioning
-      setTimeout(() => {
-        completeQuestioning();
-      }, 1500);
+      setTimeout(finish, 800);
     }
   };
 
-  const completeQuestioning = () => {
+  const finish = () => {
     completeStep('smart-questioning');
-    
-    // Generate personalized message
-    const { careerFocus, growthGoal, learningStyle } = answers;
-    const growthMessage = {
-      skills: 'expand into new areas',
-      expertise: 'deepen your existing knowledge',
-      trends: 'explore emerging trends'
+    const goal = answers.growth_goal;
+    const focus = answers.career_focus;
+    const messages: Record<string, string> = {
+      skills: 'expand into new areas', expertise: 'deepen your existing knowledge', trends: 'explore emerging trends',
     };
-    
-    guideStep('happy', `Perfect! I now understand how to help you ${growthMessage[growthGoal as keyof typeof growthMessage]} in ${careerFocus}. Let's set up your news sources!`);
-    
+    guideStep('happy', `Perfect! I'll help you ${messages[goal] ?? 'grow'} in ${focus ?? 'your field'}. Let's set up your news sources!`);
     nextStep();
   };
 
-  const skipQuestioning = () => {
-    guideStep('neutral', 'No problem! We can set this up with default preferences.');
-    completeQuestioning();
+  const skip = () => {
+    guideStep('neutral', 'No problem — default preferences applied.');
+    finish();
   };
 
-  const goBack = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
-      guideStep('thinking', 'Let me revisit that question...');
-    }
-  };
+  const isSelected = (value: string) =>
+    question.type === 'single'
+      ? answers[question.id] === value
+      : Array.isArray(answers[question.id]) && answers[question.id].includes(value);
 
-  const question = DiscoveryQuestions[currentQuestion];
-  const progress = ((currentQuestion + 1) / DiscoveryQuestions.length) * 100;
+  const multiHasAnswer = Array.isArray(answers[question.id]) && answers[question.id].length > 0;
 
   return (
-    <div className="smart-questioning-step">
-      <div className="questioning-content">
-        {/* Progress Bar */}
-        <div className="question-progress">
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="progress-text">
-            Question {currentQuestion + 1} of {DiscoveryQuestions.length}
-          </div>
+    <div className="sq-root ob-step-root">
+      {/* Progress */}
+      <div className="sq-progress">
+        <div className="ob-progress-track">
+          <div className="ob-progress-fill" style={{ width: `${progress}%` }}/>
         </div>
-
-        {/* Current Question */}
-        <div className="question-container">
-          <h2>{question.question}</h2>
-          
-          {question.explanation && (
-            <p className="question-explanation">{question.explanation}</p>
-          )}
-
-          <div className="question-options">
-            {question.type === 'single' && question.options?.map(option => (
-              <button
-                key={option.value}
-                className={`option-btn ${answers[question.id] === option.value ? 'selected' : ''}`}
-                onClick={() => handleAnswer(question.id, option.value)}
-                disabled={isProcessing}
-              >
-                <span className="option-label">{option.label}</span>
-              </button>
-            ))}
-
-            {question.type === 'multiple' && question.options?.map(option => (
-              <label key={option.value} className="option-checkbox">
-                <input
-                  type="checkbox"
-                  value={option.value}
-                  checked={Array.isArray(answers[question.id]) && answers[question.id].includes(option.value)}
-                  onChange={(e) => {
-                    const current = Array.isArray(answers[question.id]) ? answers[question.id] : [];
-                    if (e.target.checked) {
-                      handleAnswer(question.id, [...current, option.value]);
-                    } else {
-                      handleAnswer(question.id, current.filter((v: string) => v !== option.value));
-                    }
-                  }}
-                  disabled={isProcessing}
-                />
-                <span className="option-label">{option.label}</span>
-              </label>
-            ))}
-
-            {question.type === 'text' && (
-              <textarea
-                className="text-input"
-                placeholder="Your answer..."
-                onChange={(e) => handleAnswer(question.id, e.target.value)}
-                disabled={isProcessing}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="question-navigation">
-          {currentQuestion > 0 && (
-            <button 
-              className="nav-btn secondary"
-              onClick={goBack}
-              disabled={isProcessing}
-            >
-              Previous
-            </button>
-          )}
-          
-          <button 
-            className="nav-btn tertiary"
-            onClick={skipQuestioning}
-            disabled={isProcessing}
-          >
-            Skip Questions
+        <div className="sq-progress__label">
+          <span className="sq-progress__num">{currentIdx + 1} / {QUESTIONS.length}</span>
+          <button className="ob-btn ob-btn--ghost" onClick={skip} disabled={isProcessing}>
+            Skip all
           </button>
         </div>
+      </div>
 
-        {/* Current Profile Summary */}
-        {Object.keys(answers).length > 0 && (
-          <div className="profile-summary">
-            <h3>Your Preferences So Far</h3>
-            <div className="summary-grid">
-              {Object.entries(answers).map(([key, value]) => {
-                const q = DiscoveryQuestions.find(q => q.id === key);
-                const displayValue = Array.isArray(value) ? value.join(', ') : value;
-                const option = q?.options?.find(opt => opt.value === value);
-                
-                return (
-                  <div key={key} className="summary-item">
-                    <strong>{q?.question}:</strong>
-                    <span>{option?.label || displayValue}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Question */}
+      <div className="sq-question ob-stagger" key={question.id}>
+        <span className="ob-step-label">✦ {question.type === 'multiple' ? 'Select all that apply' : 'Choose one'}</span>
+        <h2 className="ob-step-title">{question.question}</h2>
+        <p className="ob-step-sub">{question.explanation}</p>
+
+        <div className={`sq-options ${question.type === 'multiple' ? 'sq-options--multi' : ''}`}>
+          {question.options.map(opt => (
+            <button
+              key={opt.value}
+              className={`sq-option ${isSelected(opt.value) ? 'sq-option--selected' : ''} ${isProcessing ? 'sq-option--loading' : ''}`}
+              onClick={() => question.type === 'single'
+                ? handleSingle(question.id, opt.value)
+                : handleMultiToggle(question.id, opt.value)
+              }
+              disabled={isProcessing && question.type === 'single'}
+            >
+              {opt.icon && <span className="sq-option__icon">{opt.icon}</span>}
+              <div className="sq-option__body">
+                <span className="sq-option__label">{opt.label}</span>
+                {opt.hint && <span className="sq-option__hint">{opt.hint}</span>}
+              </div>
+              {question.type === 'multiple' && (
+                <span className={`sq-checkbox ${isSelected(opt.value) ? 'sq-checkbox--on' : ''}`}>
+                  {isSelected(opt.value) ? '✓' : ''}
+                </span>
+              )}
+              {question.type === 'single' && isSelected(opt.value) && (
+                <span className="sq-option__dot"/>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {question.type === 'multiple' && (
+          <button
+            className="ob-btn ob-btn--primary"
+            onClick={confirmMulti}
+            disabled={!multiHasAnswer || isProcessing}
+          >
+            {isProcessing ? 'Saving…' : 'Confirm →'}
+          </button>
         )}
       </div>
+
+      {/* Answers so far */}
+      {Object.keys(answers).length > 0 && (
+        <div className="sq-summary">
+          <p className="sq-summary__label">Your answers so far</p>
+          <div className="sq-summary__pills">
+            {Object.entries(answers).map(([qId, val]) => {
+              const q = QUESTIONS.find(q => q.id === qId);
+              const displayVal = Array.isArray(val) ? val.join(', ') : val;
+              const opt = q?.options.find(o => o.value === val);
+              return (
+                <span key={qId} className="sq-summary__pill">
+                  <span className="sq-summary__pill-key">{q?.id.replace(/_/g, ' ')}</span>
+                  {opt?.label ?? displayVal}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Back nav */}
+      {currentIdx > 0 && (
+        <button className="ob-btn ob-btn--ghost" onClick={() => { setCurrentIdx(i => i - 1); guideStep('thinking', 'Let me revisit that…'); }}>
+          ← Previous question
+        </button>
+      )}
+
+      <style>{`
+        .sq-root { max-width: 640px; }
+
+        .sq-progress { display: flex; flex-direction: column; gap: 8px; }
+        .sq-progress__label {
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        .sq-progress__num {
+          font-family: var(--font-display); font-size: 11px; font-weight: 700;
+          letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase;
+        }
+
+        .sq-question { display: flex; flex-direction: column; gap: 16px; }
+
+        .sq-options {
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        .sq-options--multi { gap: 8px; }
+
+        .sq-option {
+          display: flex; align-items: center; gap: 12px;
+          padding: 14px 16px;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          cursor: pointer; text-align: left;
+          transition: background .18s, border-color .18s, transform .15s;
+          position: relative;
+        }
+        .sq-option:hover:not(:disabled) {
+          background: var(--bg-card-hover);
+          border-color: var(--border-hover);
+          transform: translateX(3px);
+        }
+        .sq-option--selected {
+          border-color: var(--border-accent) !important;
+          background: rgba(255,107,53,.06) !important;
+        }
+        .sq-option--loading { pointer-events: none; opacity: .6; }
+
+        .sq-option__icon { font-size: 20px; flex-shrink: 0; }
+        .sq-option__body { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .sq-option__label {
+          font-family: var(--font-display); font-size: 14px; font-weight: 700;
+          color: var(--text-primary);
+        }
+        .sq-option--selected .sq-option__label { color: var(--accent-text); }
+        .sq-option__hint {
+          font-family: var(--font-body); font-size: 11px; color: var(--text-muted);
+        }
+        .sq-option__dot {
+          width: 8px; height: 8px; border-radius: 50%;
+          background: var(--accent); flex-shrink: 0;
+          box-shadow: 0 0 8px var(--accent);
+        }
+
+        .sq-checkbox {
+          width: 20px; height: 20px; border-radius: 5px;
+          border: 1.5px solid var(--border);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700; color: var(--accent-text);
+          flex-shrink: 0; transition: all .15s;
+        }
+        .sq-checkbox--on {
+          background: rgba(255,107,53,.18);
+          border-color: var(--border-accent);
+        }
+
+        .sq-summary {
+          padding: 14px 16px;
+          background: rgba(255,255,255,.025);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        .sq-summary__label {
+          font-family: var(--font-display); font-size: 10px; font-weight: 700;
+          letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+        }
+        .sq-summary__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sq-summary__pill {
+          display: flex; align-items: center; gap: 6px;
+          padding: 4px 10px; border-radius: 20px;
+          background: rgba(255,255,255,.05);
+          border: 1px solid var(--border);
+          font-family: var(--font-body); font-size: 11px; color: var(--text-secondary);
+        }
+        .sq-summary__pill-key {
+          font-size: 10px; color: var(--text-muted); text-transform: capitalize;
+        }
+        .sq-summary__pill-key::after { content: ': '; }
+      `}</style>
     </div>
   );
 };

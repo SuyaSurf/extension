@@ -250,3 +250,50 @@
     animation: none !important; transition: none !important;
   }
 }
+
+/* ── Shrinked mode ─────────────────────────────────────────── */
+.suya-bot.mode-shrinked {
+  width: 20px !important;
+  height: 24px !important;
+  opacity: .55;
+  transition:
+    width .28s cubic-bezier(.4,0,.2,1),
+    height .28s cubic-bezier(.4,0,.2,1),
+    opacity .28s ease;
+  cursor: pointer;
+}
+
+.suya-bot.mode-shrinked:hover {
+  opacity: .9;
+  transform: scale(1.15);
+}
+
+/* Expand animation when leaving shrinked */
+.suya-bot:not(.mode-shrinked) {
+  transition:
+    width .3s cubic-bezier(.34,1.56,.64,1),
+    height .3s cubic-bezier(.34,1.56,.64,1),
+    opacity .2s ease;
+}
+
+/* Dragging cursor override */
+.suya-bot.dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+/* ── Drag snap edge highlight ─────────────────────── */
+.suya-bot.mode-shrinked::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255,107,53,.4);
+  animation: shrinked-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shrinked-pulse {
+  0%, 100% { opacity: .4; transform: scale(1); }
+  50%       { opacity: .15; transform: scale(1.15); }
+}

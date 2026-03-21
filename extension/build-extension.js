@@ -90,7 +90,16 @@ class ExtensionBuilder {
     for (const file of distFiles) {
       const src = path.join(this.distDir, file);
       const dest = path.join(this.buildDir, file);
-      fs.copyFileSync(src, dest);
+      
+      const stat = fs.statSync(src);
+      if (stat.isDirectory()) {
+        // Copy directory recursively
+        this.copyDirectory(src, dest);
+      } else {
+        // Copy file
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(src, dest);
+      }
     }
 
     // Copy content scripts directory
@@ -120,6 +129,50 @@ class ExtensionBuilder {
       fs.mkdirSync(path.dirname(offscreenDest), { recursive: true });
       fs.copyFileSync(offscreenSrc, offscreenDest);
       console.log('  ✓ Copied offscreen HTML');
+    }
+
+    // Copy newtab HTML
+    const newtabSrc = path.join(this.extensionDir, 'newtab', 'newtab.html');
+    const newtabDest = path.join(this.buildDir, 'newtab', 'newtab.html');
+    
+    if (fs.existsSync(newtabSrc)) {
+      fs.mkdirSync(path.dirname(newtabDest), { recursive: true });
+      let content = fs.readFileSync(newtabSrc, 'utf8');
+      // Fix script paths for newtab directory (go up to extension root)
+      content = content.replace(
+        /<script defer src="vendors\//g, 
+        '<script defer src="../vendors/'
+      );
+      content = content.replace(
+        /<script defer src="698\//g, 
+        '<script defer src="../698/'
+      );
+      content = content.replace(
+        /<script defer src="newtab\//g, 
+        '<script defer src="'
+      );
+      fs.writeFileSync(newtabDest, content);
+      console.log('  ✓ Copied newtab HTML');
+    }
+
+    // Copy settings HTML
+    const settingsSrc = path.join(this.extensionDir, 'settings', 'settings.html');
+    const settingsDest = path.join(this.buildDir, 'settings', 'settings.html');
+    
+    if (fs.existsSync(settingsSrc)) {
+      fs.mkdirSync(path.dirname(settingsDest), { recursive: true });
+      let content = fs.readFileSync(settingsSrc, 'utf8');
+      // Fix script paths for settings directory (go up to extension root)
+      content = content.replace(
+        /<script defer src="vendors\//g, 
+        '<script defer src="../vendors/'
+      );
+      content = content.replace(
+        /<script defer src="settings\//g, 
+        '<script defer src="'
+      );
+      fs.writeFileSync(settingsDest, content);
+      console.log('  ✓ Copied settings HTML');
     }
 
     // Copy offscreen JS (the one we created)

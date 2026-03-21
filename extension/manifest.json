@@ -20,7 +20,8 @@
     "tabCapture",
     "cookies",
     "webNavigation",
-    "contextMenus"
+    "contextMenus",
+    "identity"
   ],
   
   "host_permissions": [
@@ -34,7 +35,11 @@
     "*://*.web.whatsapp.com/*",
     "*://*.docs.google.com/*",
     "*://*.slides.google.com/*",
-    "*://*.youtube.com/*"
+    "*://*.youtube.com/*",
+    "https://gmail.googleapis.com/*",
+    "https://www.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*"
   ],
   
   "background": {
@@ -55,6 +60,19 @@
     }
   ],
   
+  "chrome_url_overrides": {
+    "newtab": "newtab/newtab.html"
+  },
+  
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/calendar.events.readonly"
+    ]
+  },
+  
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "AI Bot Extension",
@@ -68,7 +86,18 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["assets/*", "shared/*", "skills/application-writing/*"],
+      "resources": [
+        "assets/*",
+        "shared/*",
+        "skills/application-writing/*",
+        "vendors/*",
+        "698/*",
+        "newtab/*",
+        "settings/*",
+        "content-script/*",
+        "popup/*",
+        "offscreen/*"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

@@ -8,12 +8,14 @@ module.exports = (env, argv) => {
     entry: {
       popup: './src/popup/simple.tsx',
       offscreen: './src/offscreen/index.js',
-      'content-script': './src/content-scripts/character-ui.tsx'
+      'content-script': './src/content-scripts/character-ui.tsx',
+      newtab: './src/newtab/index.tsx',
+      settings: './src/settings/index.tsx'
     },
     output: {
       path: path.resolve(__dirname, '../dist'),
-      filename: '[name].js',
-      clean: true
+      filename: '[name]/[name].bundle.js',
+      clean: false
     },
     module: {
       rules: [
@@ -62,6 +64,24 @@ module.exports = (env, argv) => {
         filename: '../offscreen/offscreen.html',
         chunks: ['offscreen'],
         publicPath: './'
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/newtab/newtab.template.html',
+        filename: '../newtab/newtab.html',
+        chunks: ['newtab'],
+        inject: 'body',
+        scriptLoading: 'defer',
+        minify: false,
+        publicPath: '../'
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/settings/settings.template.html',
+        filename: '../settings/settings.html',
+        chunks: ['settings'],
+        inject: 'body',
+        scriptLoading: 'defer',
+        minify: false,
+        publicPath: '../'
       })
     ],
     optimization: {

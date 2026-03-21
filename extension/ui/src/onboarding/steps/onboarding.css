@@ -1,0 +1,294 @@
+/* ═══════════════════════════════════════════════
+   Suya Onboarding — Shared Design System
+   Matches SuyaBot's dark-warm aesthetic exactly
+   ═══════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+
+/* ── Tokens ────────────────────────────────────── */
+:root {
+  --bg-root:        #0D0F14;
+  --bg-surface:     #111318;
+  --bg-card:        #161920;
+  --bg-card-hover:  #1C1F28;
+  --bg-input:       rgba(255,255,255,.055);
+
+  --border:         rgba(255,255,255,.08);
+  --border-hover:   rgba(255,255,255,.16);
+  --border-accent:  rgba(255,107,53,.35);
+
+  --accent:         #FF6B35;
+  --accent-dark:    #FF3D00;
+  --accent-glow:    rgba(255,107,53,.18);
+  --accent-text:    #FF9068;
+
+  --text-primary:   rgba(255,255,255,.9);
+  --text-secondary: rgba(255,255,255,.5);
+  --text-muted:     rgba(255,255,255,.25);
+
+  --green:   #81C784;
+  --blue:    #4FC3F7;
+  --purple:  #CE93D8;
+  --amber:   #FFB74D;
+  --red:     #FF5252;
+
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+
+  --shadow-card: 0 4px 24px rgba(0,0,0,.4);
+  --shadow-glow: 0 0 40px rgba(255,107,53,.12);
+
+  --font-display: 'Syne', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --ease-out:    cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Reset ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Step wrapper ───────────────────────────────── */
+.ob-step-root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: obFadeUp .4s var(--ease-out) both;
+}
+
+@keyframes obFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Step header ────────────────────────────────── */
+.ob-step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+.ob-step-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -.02em;
+}
+
+.ob-step-sub {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+/* ── Cards ──────────────────────────────────────── */
+.ob-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+
+.ob-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.ob-card--accent {
+  border-color: var(--border-accent);
+  background: rgba(255,107,53,.04);
+}
+
+/* ── Buttons ────────────────────────────────────── */
+.ob-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s var(--ease-out);
+  border: 1px solid transparent;
+  outline: none;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.ob-btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(255,107,53,.32);
+}
+
+.ob-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 26px rgba(255,107,53,.52);
+  transform: translateY(-1px);
+}
+
+.ob-btn--secondary {
+  background: rgba(255,255,255,.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.ob-btn--secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,.1);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.ob-btn--ghost {
+  background: rgba(255,255,255,.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.ob-btn--ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: rgba(255,255,255,.08);
+}
+
+.ob-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Input fields ───────────────────────────────── */
+.ob-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 38px;
+  padding: 9px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color .2s;
+}
+
+.ob-input::placeholder { color: var(--text-muted); }
+.ob-input:focus        { border-color: var(--border-accent); }
+
+/* ── Progress bar ───────────────────────────────── */
+.ob-progress-track {
+  height: 3px;
+  background: rgba(255,255,255,.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ob-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-text));
+  border-radius: 2px;
+  transition: width .4s var(--ease-out);
+}
+
+/* ── Badges / tags ──────────────────────────────── */
+.ob-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ob-tag--orange  { background: rgba(255,107,53,.18); color: var(--accent-text); border: 1px solid rgba(255,107,53,.25); }
+.ob-tag--green   { background: rgba(129,199,132,.15); color: var(--green); border: 1px solid rgba(129,199,132,.25); }
+.ob-tag--blue    { background: rgba(79,195,247,.13); color: var(--blue); border: 1px solid rgba(79,195,247,.22); }
+.ob-tag--purple  { background: rgba(206,147,216,.13); color: var(--purple); border: 1px solid rgba(206,147,216,.22); }
+.ob-tag--amber   { background: rgba(255,183,77,.13); color: var(--amber); border: 1px solid rgba(255,183,77,.22); }
+
+/* ── Toggle ─────────────────────────────────────── */
+.ob-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.ob-toggle__track {
+  width: 40px; height: 22px; border-radius: 11px;
+  background: rgba(255,255,255,.12);
+  position: relative; transition: background .2s; flex-shrink: 0;
+}
+.ob-toggle__track--on  { background: rgba(255,107,53,.65); }
+.ob-toggle__thumb {
+  position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  top: 3px; left: 3px; background: #fff;
+  transition: transform .2s var(--ease-spring);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.ob-toggle__track--on .ob-toggle__thumb { transform: translateX(18px); }
+.ob-toggle__label { font-family: var(--font-body); font-size: 13px; color: var(--text-secondary); }
+
+/* ── Divider ─────────────────────────────────────── */
+.ob-divider {
+  height: 1px;
+  background: var(--border);
+  border: none;
+  margin: 4px 0;
+}
+
+/* ── Utility ─────────────────────────────────────── */
+.ob-row    { display: flex; align-items: center; gap: 10px; }
+.ob-col    { display: flex; flex-direction: column; gap: 6px; }
+.ob-spacer { flex: 1; }
+
+/* ── Skeleton shimmer ────────────────────────────── */
+.ob-skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg,
+    rgba(255,255,255,.04) 0%,
+    rgba(255,255,255,.08) 50%,
+    rgba(255,255,255,.04) 100%);
+  background-size: 200% 100%;
+  animation: obShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes obShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Stagger animation helper ────────────────────── */
+.ob-stagger > * {
+  animation: obFadeUp .38s var(--ease-out) both;
+}
+.ob-stagger > *:nth-child(1) { animation-delay: .04s; }
+.ob-stagger > *:nth-child(2) { animation-delay: .09s; }
+.ob-stagger > *:nth-child(3) { animation-delay: .14s; }
+.ob-stagger > *:nth-child(4) { animation-delay: .19s; }
+.ob-stagger > *:nth-child(5) { animation-delay: .24s; }
+.ob-stagger > *:nth-child(6) { animation-delay: .29s; }
+.ob-stagger > *:nth-child(7) { animation-delay: .34s; }
+.ob-stagger > *:nth-child(8) { animation-delay: .39s; }

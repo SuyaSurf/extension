@@ -165,23 +165,42 @@ window.FormScanner = (() => {
     return desc;
   }
 
-  // Detect wizard/multi-step form context
+  // Detect wizard/multi-step form context with enhanced detection
   function detectWizardContext() {
     // Look for step indicators
     const stepIndicators = document.querySelectorAll(
       '[class*="step"], [class*="wizard"], [class*="progress-step"], ' +
-      '[role="tab"], .tab, [data-step], [data-wizard-step]'
+      '[role="tab"], .tab, [data-step], [data-wizard-step], ' +
+      '[class*="stage"], [class*="phase"], .step-indicator'
     );
 
     const progressBars = document.querySelectorAll(
-      '[role="progressbar"], progress, [class*="progress"]'
+      '[role="progressbar"], progress, [class*="progress"], ' +
+      '[class*="progress-bar"], .progress-step'
     );
 
     const stepNumbers = document.querySelectorAll(
-      '.step-number, [class*="step-indicator"], [class*="breadcrumb"]'
+      '.step-number, [class*="step-indicator"], [class*="breadcrumb"], ' +
+      '[class*="step-counter"], [data-step-number]'
     );
 
-    const isWizard = stepIndicators.length > 1 || progressBars.length > 0;
+    // Look for wizard-specific containers
+    const wizardContainers = document.querySelectorAll(
+      '[class*="wizard"], [class*="multi-step"], [class*="stepper"], ' +
+      '[class*="form-wizard"], [class*="step-form"], [data-wizard]'
+    );
+
+    // Look for navigation buttons typical in wizards
+    const wizardNavButtons = document.querySelectorAll(
+      '[class*="next"], [class*="previous"], [class*="back"], ' +
+      '[class*="continue"], [class*="submit-step"], ' +
+      'button[data-action="next"], button[data-action="previous"]'
+    );
+
+    const isWizard = stepIndicators.length > 1 || 
+                     progressBars.length > 0 || 
+                     wizardContainers.length > 0 ||
+                     wizardNavButtons.length > 0;
 
     let currentStep = 0, totalSteps = 0;
 
@@ -189,7 +208,8 @@ window.FormScanner = (() => {
       // Try to determine current step
       const active = document.querySelector(
         '[class*="step"][class*="active"], [class*="step"][aria-selected="true"], ' +
-        '[class*="step"][class*="current"], .step.is-active'
+        '[class*="step"][class*="current"], .step.is-active, ' +
+        '[class*="stage"][class*="active"], [class*="stage"][class*="current"]'
       );
       const allSteps = [...stepIndicators].filter(el =>
         window.DomUtils.isVisible(el)
@@ -204,26 +224,131 @@ window.FormScanner = (() => {
         const max = pb.max || pb.getAttribute('aria-valuemax') || 100;
         if (val && max) currentStep = Math.round((val / max) * totalSteps) || currentStep;
       }
+
+      // Try reading from data attributes
+      const stepData = document.querySelector('[data-current-step]');
+      if (stepData) {
+        const stepValue = parseInt(stepData.getAttribute('data-current-step'));
+        if (!isNaN(stepValue)) currentStep = stepValue;
+      }
     }
 
-    return { isWizard, currentStep, totalSteps };
+    return { 
+      isWizard, 
+      currentStep, 
+      totalSteps,
+      hasStepIndicators: stepIndicators.length > 0,
+      hasProgressBars: progressBars.length > 0,
+      hasWizardContainers: wizardContainers.length > 0,
+      hasNavigationButtons: wizardNavButtons.length > 0
+    };
   }
 
-  // Detect conditional/hidden sections that may reveal more fields
+  // Enhanced detection of conditional/hidden sections
   function detectConditionalSections() {
     const sections = [];
-    const candidates = document.querySelectorAll(
-      '[data-condition], [data-show-if], [data-depends-on], ' +
-      '[class*="conditional"], [class*="dependent"], [class*="show-if"]'
-    );
-    for (const el of candidates) {
-      sections.push({
-        el,
-        condition: el.dataset.condition || el.dataset.showIf || el.dataset.dependsOn,
-        visible: window.DomUtils.isVisible(el)
-      });
+    
+    // Look for various conditional patterns
+    const conditionalSelectors = [
+      '[data-condition]',
+      '[data-show-if]',
+      '[data-depends-on]',
+      '[data-conditional]',
+      '[data-visible-if]',
+      '[class*="conditional"]',
+      '[class*="dependent"]',
+      '[class*="show-if"]',
+      '[class*="hide-if"]',
+      '[class*="reveal"]',
+      '.conditional-section',
+      '.dependent-field'
+    ];
+
+    for (const selector of conditionalSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const condition = el.dataset.condition || 
+                           el.dataset.showIf || 
+                           el.dataset.dependsOn || 
+                           el.dataset.conditional ||
+                           el.dataset.visibleIf;
+          
+          if (condition || el.className.includes('conditional')) {
+            sections.push({
+              el,
+              condition: condition || 'class-based',
+              visible: window.DomUtils.isVisible(el),
+              type: 'conditional'
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Invalid selector for conditional detection:', selector);
+      }
     }
+
+    // Look for dynamically hidden/shown elements
+    const hiddenElements = document.querySelectorAll('[style*="display: none"], [style*="display:none"], [hidden]');
+    for (const el of hiddenElements) {
+      // Check if it contains form elements
+      if (el.querySelector('input, textarea, select, button')) {
+        sections.push({
+          el,
+          condition: 'style-hidden',
+          visible: false,
+          type: 'hidden-form'
+        });
+      }
+    }
+
     return sections;
+  }
+
+  // Detect if form has dynamic content that might appear later
+  function detectDynamicFormPotential() {
+    // Look for triggers that might reveal form content
+    const triggers = document.querySelectorAll([
+      '[data-toggle]',
+      '[data-target]',
+      '[data-reveal]',
+      '[data-expand]',
+      '[class*="toggle"]',
+      '[class*="trigger"]',
+      '[class*="accordion"]',
+      '[class*="collapsible"]',
+      '.form-trigger',
+      '.field-revealer'
+    ].join(', '));
+
+    // Look for tabs that might contain form content
+    const tabs = document.querySelectorAll([
+      '[role="tab"]',
+      '[class*="tab"]',
+      '.tab-button',
+      '[data-tab]'
+    ].join(', '));
+
+    // Check if any tabs contain form elements
+    const tabsWithForms = [...tabs].filter(tab => {
+      const target = tab.getAttribute('aria-controls') || 
+                     tab.getAttribute('data-target') || 
+                     tab.getAttribute('href');
+      if (target) {
+        const targetEl = document.getElementById(target) || document.querySelector(target);
+        return targetEl?.querySelector('input, textarea, select');
+      }
+      return false;
+    });
+
+    return {
+      hasTriggers: triggers.length > 0,
+      hasTabs: tabs.length > 0,
+      hasTabsWithForms: tabsWithForms.length > 0,
+      triggerCount: triggers.length,
+      tabCount: tabs.length,
+      formTabCount: tabsWithForms.length
+    };
   }
 
   // Main scan function
@@ -254,6 +379,11 @@ window.FormScanner = (() => {
 
     const wizard = detectWizardContext();
     const conditionals = detectConditionalSections();
+    const dynamic = detectDynamicFormPotential();
+    
+    // Enhanced form detection for modern applications
+    const modernForms = window.DomUtils.detectModernForms();
+    const eventForms = window.DomUtils.detectEventForms();
 
     // Radio groups — group them
     const radioGroups = {};
@@ -280,8 +410,178 @@ window.FormScanner = (() => {
       checkboxGroups,
       wizard,
       conditionals,
+      dynamic,
+      modernForms,
+      eventForms,
       timestamp: Date.now()
     };
+  }
+
+  // Form type detection based on field analysis and page context
+  function detectFormType(scanResult = null) {
+    const result = scanResult || window.FormScanner.scan();
+    const fields = result.fields || [];
+    if (fields.length === 0) {
+      // Check if there's potential for dynamic forms
+      if (result.dynamic?.hasTabsWithForms || result.dynamic?.hasTriggers) {
+        return 'dynamic-potential'
+      }
+      return 'none';
+    }
+
+    // Count field types
+    const fieldCounts = {
+      personal: 0,      // name, email, phone, address
+      login: 0,         // username, password
+      search: 0,        // search, query, keyword
+      message: 0,       // message, comment, feedback
+      application: 0,   // job, company, experience
+      payment: 0,       // card, billing, payment
+      general: 0        // other inputs
+    };
+
+    // Analyze each field
+    for (const field of fields) {
+      if (!field.visible) continue;
+      
+      const semantic = field.semanticType;
+      const labels = (field.labels || []).join(' ').toLowerCase();
+      const placeholder = (field.placeholder || '').toLowerCase();
+      const name = (field.name || '').toLowerCase();
+      const combined = `${labels} ${placeholder} ${name}`;
+
+      // Personal information fields
+      if (['firstName', 'lastName', 'fullName', 'email', 'phone', 'address', 'address2', 'city', 'state', 'zip', 'country', 'dob', 'age', 'gender'].includes(semantic)) {
+        fieldCounts.personal++;
+      }
+      // Login fields
+      else if (['username', 'password', 'confirmPassword'].includes(semantic) || 
+               /login|signin|sign.*in|log.*in/.test(combined)) {
+        fieldCounts.login++;
+      }
+      // Search fields
+      else if (/search|query|keyword|find|filter|locate/.test(combined)) {
+        fieldCounts.search++;
+      }
+      // Message fields
+      else if (['message'].includes(semantic) || 
+               /message|comment|feedback|inquiry|enquiry|remark|note/.test(combined)) {
+        fieldCounts.message++;
+      }
+      // Application fields
+      else if (['company', 'jobTitle', 'website'].includes(semantic) || 
+               /company|employer|occupation|position|experience|resume|cv/.test(combined)) {
+        fieldCounts.application++;
+      }
+      // Payment fields
+      else if (['cardNumber', 'cardExpiry', 'cardCvv', 'cardHolder'].includes(semantic) || 
+               /card|payment|billing|cvv|expiry/.test(combined)) {
+        fieldCounts.payment++;
+      }
+      else {
+        fieldCounts.general++;
+      }
+    }
+
+    // Check for sign-in forms
+    if (fieldCounts.login >= 2 && fieldCounts.personal < 2) {
+      return 'signin';
+    }
+
+    // Check for search forms (dominant search fields)
+    if (fieldCounts.search >= 2 || (fieldCounts.search >= 1 && fieldCounts.search > fieldCounts.personal)) {
+      return 'search';
+    }
+
+    // Check for contact forms
+    if (fieldCounts.message >= 1 && fieldCounts.personal >= 1) {
+      return 'contact';
+    }
+
+    // Check for application/registration forms
+    if (fieldCounts.personal >= 3 || (fieldCounts.personal >= 2 && fieldCounts.application >= 1)) {
+      return 'application';
+    }
+
+    // Check for payment forms
+    if (fieldCounts.payment >= 2) {
+      return 'payment';
+    }
+
+    // Check for wizard forms - give them priority
+    if (result.wizard?.isWizard) {
+      return 'wizard';
+    }
+
+    // Mixed form with some fillable fields
+    if (fieldCounts.personal >= 1 || fieldCounts.message >= 1) {
+      return 'mixed';
+    }
+
+    // If we have conditional sections, mark as dynamic
+    if (result.conditionals?.length > 0) {
+      return 'conditional';
+    }
+
+    return 'other';
+  }
+
+  // Detect if this is a sign-in page based on URL and content
+  function isSignInPage() {
+    const url = window.location.href.toLowerCase();
+    const pathname = window.location.pathname.toLowerCase();
+    const title = document.title.toLowerCase();
+    
+    // URL patterns for sign-in pages
+    const signInPatterns = [
+      /login|signin|sign.*in|log.*in/,
+      /auth|authenticate/,
+      /account|session/,
+      /oauth|sso/
+    ];
+    
+    const urlMatch = signInPatterns.some(pattern => 
+      pattern.test(url) || pattern.test(pathname)
+    );
+    
+    // Content patterns
+    const contentMatch = /sign.*in|log.*in|login|authenticate/.test(title);
+    
+    // Check for login forms
+    const hasLoginForm = window.FormScanner.scan().fields.some(field => 
+      field.visible && (
+        field.semanticType === 'username' || 
+        field.semanticType === 'password' ||
+        /login|signin/.test((field.labels || []).join(' '))
+      )
+    );
+    
+    return urlMatch || contentMatch || hasLoginForm;
+  }
+
+  // Detect if this is a search-dominant page
+  function isSearchPage() {
+    const scanResult = window.FormScanner.scan();
+    const searchFields = scanResult.fields.filter(field => 
+      field.visible && /search|query|keyword|filter/.test(
+        [(field.labels || []).join(' '), field.placeholder, field.name].join(' ').toLowerCase()
+      )
+    );
+    
+    // If most inputs are search-related, it's a search page
+    const totalInputs = scanResult.visibleFields.length;
+    return totalInputs > 0 && searchFields.length / totalInputs > 0.6;
+  }
+
+  // Get fillable field count (excludes search-only fields)
+  function getFillableFieldCount(scanResult = null) {
+    const fields = scanResult?.fields || window.FormScanner.scan().fields;
+    return fields.filter(field => 
+      field.visible && 
+      !/search|query|keyword|filter/.test(
+        [(field.labels || []).join(' '), field.placeholder, field.name].join(' ').toLowerCase()
+      )
+    ).length;
   }
 
   // Quick check if page has any forms worth filling
@@ -296,5 +596,19 @@ window.FormScanner = (() => {
     );
   }
 
-  return { scan, describeField, classifyInput, getSemanticType, detectWizardContext, hasFormsOnPage, FIELD_SEMANTICS };
+  return { 
+    scan, 
+    describeField, 
+    classifyInput, 
+    getSemanticType, 
+    detectWizardContext, 
+    hasFormsOnPage, 
+    FIELD_SEMANTICS,
+    detectFormType,
+    isSignInPage,
+    isSearchPage,
+    getFillableFieldCount,
+    detectConditionalSections,
+    detectDynamicFormPotential
+  };
 })();
