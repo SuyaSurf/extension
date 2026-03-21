@@ -282,7 +282,7 @@ class ProfileManager {
   }
 
   generateId() {
-    return 'profile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return 'profile_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
   }
 
   async exportProfile(profileId) {
@@ -352,24 +352,27 @@ class ProfileManager {
     let filledFields = 0;
     let totalFields = 0;
 
-    // Count personal info fields
-    const personalFields = ['firstName', 'lastName', 'email', 'phone'];
+    // Count personal info fields (expanded list)
+    const personalFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zip', 'country', 'dob', 'gender', 'website'];
     personalFields.forEach(field => {
       totalFields++;
-      if (profile.personalInfo?.[field]) filledFields++;
+      if (profile.personalInfo?.[field] && profile.personalInfo[field].trim()) filledFields++;
     });
 
     // Count work experience
-    if (profile.workExperience?.length > 0) {
-      totalFields++;
-      filledFields++;
-    }
+    totalFields++;
+    if (profile.workExperience?.length > 0) filledFields++;
 
-    // Count education
-    if (profile.education?.length > 0) {
+    // Count education  
+    totalFields++;
+    if (profile.education?.length > 0) filledFields++;
+
+    // Count skills sections
+    const skillSections = ['technical', 'soft', 'languages', 'certifications'];
+    skillSections.forEach(section => {
       totalFields++;
-      filledFields++;
-    }
+      if (profile.skills?.[section]?.length > 0) filledFields++;
+    });
 
     return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
   }

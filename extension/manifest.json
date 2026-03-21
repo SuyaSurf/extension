@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AI Bot Extension",
+  "name": "SuyaSurf Chrome Assistant",
   "version": "1.0.0",
   "description": "Comprehensive AI assistant with 15+ specialized skills for background tasks, server integration, mail management, content creation, and more",
   
@@ -90,6 +90,7 @@
         "assets/*",
         "shared/*",
         "skills/application-writing/*",
+        "skills/qa-testing/*",
         "vendors/*",
         "698/*",
         "newtab/*",

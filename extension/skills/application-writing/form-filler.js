@@ -270,17 +270,17 @@ const FormFiller = (() => {
     if (el.type === 'date') {
       // Convert common formats to yyyy-mm-dd
       const parsed = new Date(value);
-      if (!isNaN(parsed)) {
+      if (!isNaN(parsed.getTime())) {
         formatted = parsed.toISOString().split('T')[0];
       }
     } else if (el.type === 'datetime-local') {
       const parsed = new Date(value);
-      if (!isNaN(parsed)) {
+      if (!isNaN(parsed.getTime())) {
         formatted = parsed.toISOString().slice(0, 16);
       }
     } else if (el.type === 'month') {
       const parsed = new Date(value);
-      if (!isNaN(parsed)) {
+      if (!isNaN(parsed.getTime())) {
         formatted = `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}`;
       }
     }
@@ -447,15 +447,31 @@ const FormFiller = (() => {
   }
 
   // ── Highlight filled fields ───────────────────────────────────────────────
+  const highlightMap = new WeakMap(); // Track original styles per element
+
   function highlight(field, success = true) {
     const el = field.el;
-    const originalOutline = el.style.outline;
-    const originalBackground = el.style.backgroundColor;
+    if (!el) return;
+
+    // Store original styles if not already stored
+    if (!highlightMap.has(el)) {
+      highlightMap.set(el, {
+        outline: el.style.outline,
+        backgroundColor: el.style.backgroundColor
+      });
+    }
+
+    const original = highlightMap.get(el);
     el.style.outline = success ? '2px solid #22c55e' : '2px solid #ef4444';
     el.style.backgroundColor = success ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    
     setTimeout(() => {
-      el.style.outline = originalOutline;
-      el.style.backgroundColor = originalBackground;
+      // Restore original styles if element still exists and hasn't been modified
+      if (highlightMap.has(el)) {
+        el.style.outline = original.outline;
+        el.style.backgroundColor = original.backgroundColor;
+        highlightMap.delete(el);
+      }
     }, 2000);
   }
 

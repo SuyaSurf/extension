@@ -1,5 +1,17 @@
 /* ─── utils/fuzzy-match.js ─── */
-window.FuzzyMatch = (() => {
+(function(global) {
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined';
+  
+  if (!isBrowser) {
+    // Export empty object for Node.js testing
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = { score: () => 0, best: () => null };
+    }
+    return;
+  }
+
+  const FuzzyMatch = (() => {
   // Levenshtein distance
   function levenshtein(a, b) {
     const m = a.length, n = b.length;
@@ -64,3 +76,12 @@ window.FuzzyMatch = (() => {
 
   return { score, best, norm, tokenSetRatio };
 })();
+
+// Export for both environments
+if (isBrowser) {
+  window.FuzzyMatch = FuzzyMatch;
+} else if (typeof module !== 'undefined' && module.exports) {
+  module.exports = FuzzyMatch;
+}
+
+})(typeof window !== 'undefined' ? window : global);

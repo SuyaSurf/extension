@@ -12,6 +12,7 @@ import { PerformanceMonitor } from '../shared/utils/performance-monitor.js';
 import { SecurityManager } from '../shared/security/security-manager.js';
 import { ErrorHandler } from '../shared/utils/error-handler.js';
 import { notificationAggregator } from './notification-aggregator.js';
+import { ContextMenuHandler } from './context-menu.js';
 
 class ExtensionServiceWorker {
   constructor() {
@@ -23,6 +24,7 @@ class ExtensionServiceWorker {
     this.performanceMonitor = new PerformanceMonitor();
     this.securityManager = new SecurityManager();
     this.errorHandler = new ErrorHandler();
+    this.contextMenuHandler = new ContextMenuHandler();
     
     this.isInitialized = false;
   }
@@ -47,6 +49,9 @@ class ExtensionServiceWorker {
       
       // Register all skills
       await this.skillRegistry.registerAllSkills();
+      
+      // Initialize context menu
+      await this.contextMenuHandler.initialize();
       
       // Initialize event bus with skill registry
       this.eventBus.setSkillRegistry(this.skillRegistry);
@@ -314,6 +319,13 @@ class ExtensionServiceWorker {
       const targetSkill = this.skillRegistry.getSkill(skillName);
       if (targetSkill) {
         await targetSkill.handleContextMenu(info, tab);
+      } else {
+        // Try to get skill from full menu item ID
+        const fullSkillName = menuItemId.toString().replace('-', '_');
+        const fullTargetSkill = this.skillRegistry.getSkill(fullSkillName);
+        if (fullTargetSkill) {
+          await fullTargetSkill.handleContextMenu(info, tab);
+        }
       }
     } catch (error) {
       console.error('Error handling context menu:', error);

@@ -78,9 +78,10 @@ class SkillRegistry {
       ApplicationWritingSkill,
       DocumentSkillsSkill,
       UIAssistantSkill,
+      UXReviewSkill,
     } = domAvailable
       ? await this.loadDomSkills()
-      : { ApplicationWritingSkill: null, DocumentSkillsSkill: null, UIAssistantSkill: null };
+      : { ApplicationWritingSkill: null, DocumentSkillsSkill: null, UIAssistantSkill: null, UXReviewSkill: null };
     
     const skillConfigs = [
       { 
@@ -187,6 +188,22 @@ class SkillRegistry {
         }
       },
       {
+        name: 'ux-review',
+        class: UXReviewSkill,
+        autoActivate: false,
+        priority: 9.5,
+        config: {
+          monitorConsole: true,
+          monitorNetwork: true,
+          captureViewport: true,
+          captureFullPage: false,
+          captureRecording: false,
+          exerciseForms: true,
+          allowScheduling: true,
+          useEventBus: true
+        }
+      },
+      {
         name: 'ui-assistant',
         class: UIAssistantSkill, 
         autoActivate: true,
@@ -205,8 +222,9 @@ class SkillRegistry {
     // Register skills in priority order
     for (const config of skillConfigs) {
       try {
-        // In MV3 service worker context, skip DOM-dependent skills
-        if (!domAvailable && (config.name === 'application-writing' || config.name === 'document-skills' || config.name === 'ui-assistant')) {
+        // In MV3 service worker context, only skip truly DOM-dependent skills
+        // ApplicationWritingSkill can work in service worker for background actions
+        if (!domAvailable && (config.name === 'document-skills' || config.name === 'ui-assistant' || config.name === 'ux-review')) {
           console.log(`Skipping DOM-dependent skill in service worker: ${config.name}`);
           continue;
         }
@@ -228,13 +246,21 @@ class SkillRegistry {
   }
 
   async loadDomSkills() {
-    const [{ ApplicationWritingSkill }, { DocumentSkillsSkill }, { UIAssistantSkill }] = await Promise.all([
-      import('../skills/application-writing/skill.js'),
-      import('../skills/document-skills/skill.js'),
-      import('../skills/ui-assistant/skill.js'),
-    ]);
+    // In service worker context, only load ApplicationWritingSkill for background actions
+    if (this.isDOMAvailable()) {
+      const [{ ApplicationWritingSkill }, { DocumentSkillsSkill }, { UIAssistantSkill }, { UXReviewSkill }] = await Promise.all([
+        import('../skills/application-writing/skill.js'),
+        import('../skills/document-skills/skill.js'),
+        import('../skills/ui-assistant/skill.js'),
+        import('../skills/qa-testing/ux-review-skill.js'),
+      ]);
 
-    return { ApplicationWritingSkill, DocumentSkillsSkill, UIAssistantSkill };
+      return { ApplicationWritingSkill, DocumentSkillsSkill, UIAssistantSkill, UXReviewSkill };
+    } else {
+      // In service worker, only load ApplicationWritingSkill
+      const { ApplicationWritingSkill } = await import('../skills/application-writing/skill.js');
+      return { ApplicationWritingSkill, DocumentSkillsSkill: null, UIAssistantSkill: null, UXReviewSkill: null };
+    }
   }
 
   async activateSkill(skillName) {

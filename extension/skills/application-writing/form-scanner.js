@@ -1,37 +1,87 @@
 /* ─── form-scanner.js ─── */
-window.FormScanner = (() => {
+(function(global) {
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+  
+  if (!isBrowser) {
+    // Export empty object for Node.js testing
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = { scan: () => ({ fields: [], timestamp: Date.now() }) };
+    }
+    return;
+  }
 
-  // Semantic dictionary for field types
+  const FormScanner = (() => {
+
+  // ─── Semantic dictionary for field types ─────────────────────────────────
+  // Extended with RSVP / event-registration / startup-accelerator fields
   const FIELD_SEMANTICS = {
-    firstName:   ['first name','first','given name','forename','fname','firstname','prenom','vorname','nombre'],
-    lastName:    ['last name','last','surname','family name','lname','lastname','nachname','apellido'],
-    fullName:    ['full name','name','your name','complete name','nombre completo'],
-    email:       ['email','e-mail','email address','mail','correo','courriel'],
-    phone:       ['phone','telephone','mobile','cell','contact number','tel','handphone','phone number'],
-    address:     ['address','street','street address','addr','direccion','adresse'],
-    address2:    ['address 2','apartment','apt','suite','unit','floor','line 2'],
-    city:        ['city','town','locality','ciudad','ville','ort','stad'],
-    state:       ['state','province','region','county','territory'],
-    zip:         ['zip','postal code','postcode','zip code','plz','cp','cep'],
-    country:     ['country','nation','pays','land','pais'],
-    dob:         ['date of birth','dob','birthday','birth date','born','fecha nacimiento'],
-    age:         ['age','how old','your age'],
-    gender:      ['gender','sex','identity'],
-    company:     ['company','organisation','organization','employer','business','firm','workplace'],
-    jobTitle:    ['job title','title','position','role','occupation','designation'],
-    website:     ['website','url','web','site','homepage','portfolio'],
-    username:    ['username','user name','handle','login','screen name','nickname'],
-    password:    ['password','pass','passwd','pwd','passphrase'],
+    firstName:       ['first name','first','given name','forename','fname','firstname','prenom','vorname','nombre'],
+    lastName:        ['last name','last','surname','family name','lname','lastname','nachname','apellido'],
+    fullName:        ['full name','name','your name','complete name','nombre completo','attendee name','participant name'],
+    email:           ['email','e-mail','email address','mail','correo','courriel','work email','business email'],
+    phone:           ['phone','telephone','mobile','cell','contact number','tel','handphone','phone number'],
+    address:         ['address','street','street address','addr','direccion','adresse'],
+    address2:        ['address 2','apartment','apt','suite','unit','floor','line 2'],
+    city:            ['city','town','locality','ciudad','ville','ort','stad'],
+    state:           ['state','province','region','county','territory'],
+    zip:             ['zip','postal code','postcode','zip code','plz','cp','cep'],
+    country:         ['country','nation','pays','land','pais'],
+    dob:             ['date of birth','dob','birthday','birth date','born','fecha nacimiento'],
+    age:             ['age','how old','your age'],
+    gender:          ['gender','sex','identity','pronouns'],
+    company:         ['company','organisation','organization','employer','business','firm','workplace',
+                      'startup','startup name','company name','organization name'],
+    jobTitle:        ['job title','title','position','role','occupation','designation',
+                      'current role','current position','your role','what is your role'],
+    website:         ['website','url','web','site','homepage','portfolio','company website','startup website'],
+    username:        ['username','user name','handle','login','screen name','nickname'],
+    password:        ['password','pass','passwd','pwd','passphrase'],
     confirmPassword: ['confirm password','repeat password','retype password','verify password'],
-    message:     ['message','comment','description','notes','remarks','feedback','enquiry','inquiry'],
-    subject:     ['subject','topic','re','regarding'],
-    cardNumber:  ['card number','credit card','debit card','pan','card no'],
-    cardExpiry:  ['expiry','expiration','expires','exp date','mm/yy'],
-    cardCvv:     ['cvv','cvc','security code','card code','csc'],
-    cardHolder:  ['card holder','name on card','cardholder'],
+    message:         ['message','comment','description','notes','remarks','feedback','enquiry','inquiry',
+                      'additional information','anything else','other comments','tell us more'],
+    subject:         ['subject','topic','re','regarding'],
+
+    // ── RSVP / event-registration specific ───────────────────────────────
+    attendanceType:  ['attendance','attending','will you attend','how will you attend',
+                      'in person','virtual','online','hybrid','rsvp','i will attend'],
+    dietaryRestrictions: ['dietary','diet','food','allergies','dietary restrictions',
+                          'dietary requirements','food preference','food allergies',
+                          'special dietary','vegetarian','vegan','halal','kosher','gluten'],
+    tshirtSize:      ['t-shirt size','shirt size','tshirt','size','clothing size'],
+    companySize:     ['company size','number of employees','team size','how many employees',
+                      'employees','headcount','size of company','staff size'],
+    companyStage:    ['stage','startup stage','company stage','funding stage','series',
+                      'pre-seed','seed','series a','growth stage'],
+    industry:        ['industry','sector','vertical','field','domain','market','niche'],
+    hearAboutUs:     ['how did you hear','how did you find','referral','source','where did you hear',
+                      'how did you learn','discovery source'],
+    linkedIn:        ['linkedin','linkedin url','linkedin profile','linkedin.com'],
+    twitter:         ['twitter','twitter handle','x handle','@'],
+    instagram:       ['instagram','ig','@'],
+    bio:             ['bio','biography','about you','about yourself','describe yourself',
+                      'short bio','professional bio','introduction','brief description'],
+    specialRequirements: ['special requirements','accessibility','accommodation','special needs',
+                          'any special requirements','accessibility needs'],
+    agenda:          ['agenda','session','track','which sessions','which workshops'],
+    teamSize:        ['team size','how many team members','number of founders','co-founders'],
+    fundingAmount:   ['funding','amount','how much funding','how much have you raised',
+                      'total funding','capital raised'],
+    productStage:    ['product stage','mvp','launched','beta','product ready','traction'],
+    country2:        ['country of incorporation','country of registration','country of operation',
+                      'where are you based','location','headquarters','hq'],
+    referralCode:    ['referral code','promo code','voucher','coupon','invite code'],
+    consent:         ['consent','agree','terms','privacy','i agree','accept terms',
+                      'newsletter','marketing','opt in','subscribe'],
+
+    // ── Payment fields ───────────────────────────────────────────────────
+    cardNumber:      ['card number','credit card','debit card','pan','card no'],
+    cardExpiry:      ['expiry','expiration','expires','exp date','mm/yy'],
+    cardCvv:         ['cvv','cvc','security code','card code','csc'],
+    cardHolder:      ['card holder','name on card','cardholder'],
   };
 
-  // Input type classification
+  // ─── Input type classification ───────────────────────────────────────────
   const TYPE_MAP = {
     text: ['text','search','url','tel','email','number','password','hidden'],
     textarea: ['textarea'],
@@ -46,7 +96,6 @@ window.FormScanner = (() => {
     custom: ['combobox','listbox','textbox'],
   };
 
-  // Detect what kind of input this is
   function classifyInput(el) {
     const tag = el.tagName.toLowerCase();
     const type = (el.type || '').toLowerCase();
@@ -72,7 +121,6 @@ window.FormScanner = (() => {
     return 'text';
   }
 
-  // Detect if this is a custom dropdown (Ant Design, Material UI, Select2, etc.)
   function isCustomDropdown(el) {
     const role = el.getAttribute('role');
     if (role === 'combobox' || role === 'listbox') return true;
@@ -82,60 +130,57 @@ window.FormScanner = (() => {
     return patterns.some(p => cls.toLowerCase().includes(p));
   }
 
-  // Detect if this is a typeahead/autocomplete input
   function isAutocomplete(el) {
     if (el.getAttribute('autocomplete') === 'off' && el.getAttribute('role') === 'combobox') return true;
     const cls = (el.className || '').toLowerCase();
     const patterns = ['autocomplete','typeahead','autosuggest','suggest','autocompl'];
     if (patterns.some(p => cls.includes(p))) return true;
-    // Check for nearby aria-haspopup or aria-autocomplete
     if (el.getAttribute('aria-haspopup') || el.getAttribute('aria-autocomplete')) return true;
     return false;
   }
 
-  // Detect if a rich text editor (Quill, TinyMCE, CKEditor, etc.)
   function isRichTextEditor(el) {
     const cls = (el.className || '').toLowerCase();
     const patterns = ['ql-editor','tox-edit-area','cke_editable','note-editable',
       'ProseMirror','codex-editor','fr-element','mce-content-body'];
     if (patterns.some(p => cls.includes(p) || el.id?.includes(p))) return true;
-    const ce = el.getAttribute('contenteditable');
-    if (ce === 'true') return true;
-    return false;
+    return el.getAttribute('contenteditable') === 'true';
   }
 
-  // Get semantic field type from labels/attributes
   function getSemanticType(el) {
     const labels = window.DomUtils.getLabels(el);
     const combined = labels.join(' ').toLowerCase();
     const elType = (el.type || '').toLowerCase();
 
-    // Email type is definitive
+    // Definitive type signals from input type attr
     if (elType === 'email') return 'email';
     if (elType === 'tel') return 'phone';
     if (elType === 'password') {
-      // Check if it's a confirm field
       if (/confirm|repeat|retype|verify/.test(combined)) return 'confirmPassword';
       return 'password';
     }
     if (elType === 'file') return 'file';
-    if (elType === 'date') return 'dob'; // may not always be dob, but most common
+    if (elType === 'date') return 'dob';
 
-    // Check semantic dictionary
+    // Semantic dictionary scan — longest keyword wins to avoid partial mismatches
+    let bestType = null, bestLen = 0;
     for (const [type, keywords] of Object.entries(FIELD_SEMANTICS)) {
-      if (keywords.some(k => combined.includes(k))) return type;
+      for (const k of keywords) {
+        if (combined.includes(k) && k.length > bestLen) {
+          bestLen = k.length;
+          bestType = type;
+        }
+      }
     }
-
-    return null;
+    return bestType;
   }
 
-  // Build a descriptor for a single field
   function describeField(el) {
     const labels = window.DomUtils.getLabels(el);
     const inputClass = classifyInput(el);
     const semanticType = getSemanticType(el);
 
-    const desc = {
+    return {
       el,
       tag: el.tagName.toLowerCase(),
       type: el.type || inputClass,
@@ -159,65 +204,47 @@ window.FormScanner = (() => {
       min: el.min || null,
       max: el.max || null,
       pattern: el.pattern || null,
-      accept: el.accept || null, // for file inputs
+      accept: el.accept || null,
     };
-
-    return desc;
   }
 
-  // Detect wizard/multi-step form context with enhanced detection
+  // ─── Wizard detection ────────────────────────────────────────────────────
   function detectWizardContext() {
-    // Look for step indicators
     const stepIndicators = document.querySelectorAll(
       '[class*="step"], [class*="wizard"], [class*="progress-step"], ' +
       '[role="tab"], .tab, [data-step], [data-wizard-step], ' +
       '[class*="stage"], [class*="phase"], .step-indicator'
     );
-
     const progressBars = document.querySelectorAll(
       '[role="progressbar"], progress, [class*="progress"], ' +
       '[class*="progress-bar"], .progress-step'
     );
-
-    const stepNumbers = document.querySelectorAll(
-      '.step-number, [class*="step-indicator"], [class*="breadcrumb"], ' +
-      '[class*="step-counter"], [data-step-number]'
-    );
-
-    // Look for wizard-specific containers
     const wizardContainers = document.querySelectorAll(
       '[class*="wizard"], [class*="multi-step"], [class*="stepper"], ' +
       '[class*="form-wizard"], [class*="step-form"], [data-wizard]'
     );
-
-    // Look for navigation buttons typical in wizards
     const wizardNavButtons = document.querySelectorAll(
       '[class*="next"], [class*="previous"], [class*="back"], ' +
       '[class*="continue"], [class*="submit-step"], ' +
       'button[data-action="next"], button[data-action="previous"]'
     );
 
-    const isWizard = stepIndicators.length > 1 || 
-                     progressBars.length > 0 || 
+    const isWizard = stepIndicators.length > 1 ||
+                     progressBars.length > 0 ||
                      wizardContainers.length > 0 ||
                      wizardNavButtons.length > 0;
 
     let currentStep = 0, totalSteps = 0;
-
     if (isWizard) {
-      // Try to determine current step
       const active = document.querySelector(
         '[class*="step"][class*="active"], [class*="step"][aria-selected="true"], ' +
         '[class*="step"][class*="current"], .step.is-active, ' +
         '[class*="stage"][class*="active"], [class*="stage"][class*="current"]'
       );
-      const allSteps = [...stepIndicators].filter(el =>
-        window.DomUtils.isVisible(el)
-      );
+      const allSteps = [...stepIndicators].filter(el => window.DomUtils.isVisible(el));
       totalSteps = allSteps.length;
       currentStep = active ? allSteps.indexOf(active) + 1 : 1;
 
-      // Try reading step from progress bar value
       const pb = progressBars[0];
       if (pb) {
         const val = pb.value || pb.getAttribute('aria-valuenow');
@@ -225,114 +252,69 @@ window.FormScanner = (() => {
         if (val && max) currentStep = Math.round((val / max) * totalSteps) || currentStep;
       }
 
-      // Try reading from data attributes
       const stepData = document.querySelector('[data-current-step]');
       if (stepData) {
-        const stepValue = parseInt(stepData.getAttribute('data-current-step'));
-        if (!isNaN(stepValue)) currentStep = stepValue;
+        const sv = parseInt(stepData.getAttribute('data-current-step'));
+        if (!isNaN(sv)) currentStep = sv;
       }
     }
 
-    return { 
-      isWizard, 
-      currentStep, 
-      totalSteps,
-      hasStepIndicators: stepIndicators.length > 0,
-      hasProgressBars: progressBars.length > 0,
-      hasWizardContainers: wizardContainers.length > 0,
-      hasNavigationButtons: wizardNavButtons.length > 0
-    };
+    return { isWizard, currentStep, totalSteps,
+             hasStepIndicators: stepIndicators.length > 0,
+             hasProgressBars: progressBars.length > 0,
+             hasWizardContainers: wizardContainers.length > 0,
+             hasNavigationButtons: wizardNavButtons.length > 0 };
   }
 
-  // Enhanced detection of conditional/hidden sections
+  // ─── Conditional section detection ───────────────────────────────────────
   function detectConditionalSections() {
     const sections = [];
-    
-    // Look for various conditional patterns
     const conditionalSelectors = [
-      '[data-condition]',
-      '[data-show-if]',
-      '[data-depends-on]',
-      '[data-conditional]',
-      '[data-visible-if]',
-      '[class*="conditional"]',
-      '[class*="dependent"]',
-      '[class*="show-if"]',
-      '[class*="hide-if"]',
-      '[class*="reveal"]',
-      '.conditional-section',
-      '.dependent-field'
+      '[data-condition]','[data-show-if]','[data-depends-on]',
+      '[data-conditional]','[data-visible-if]',
+      '[class*="conditional"]','[class*="dependent"]',
+      '[class*="show-if"]','[class*="hide-if"]','[class*="reveal"]',
+      '.conditional-section','.dependent-field'
     ];
 
     for (const selector of conditionalSelectors) {
       try {
-        const elements = document.querySelectorAll(selector);
-        for (const el of elements) {
-          const condition = el.dataset.condition || 
-                           el.dataset.showIf || 
-                           el.dataset.dependsOn || 
-                           el.dataset.conditional ||
+        for (const el of document.querySelectorAll(selector)) {
+          const condition = el.dataset.condition || el.dataset.showIf ||
+                           el.dataset.dependsOn || el.dataset.conditional ||
                            el.dataset.visibleIf;
-          
           if (condition || el.className.includes('conditional')) {
-            sections.push({
-              el,
-              condition: condition || 'class-based',
-              visible: window.DomUtils.isVisible(el),
-              type: 'conditional'
-            });
+            sections.push({ el, condition: condition || 'class-based',
+                            visible: window.DomUtils.isVisible(el), type: 'conditional' });
           }
         }
-      } catch (e) {
-        console.warn('Invalid selector for conditional detection:', selector);
-      }
+      } catch (e) {}
     }
 
-    // Look for dynamically hidden/shown elements
-    const hiddenElements = document.querySelectorAll('[style*="display: none"], [style*="display:none"], [hidden]');
-    for (const el of hiddenElements) {
-      // Check if it contains form elements
+    for (const el of document.querySelectorAll('[style*="display: none"], [style*="display:none"], [hidden]')) {
       if (el.querySelector('input, textarea, select, button')) {
-        sections.push({
-          el,
-          condition: 'style-hidden',
-          visible: false,
-          type: 'hidden-form'
-        });
+        sections.push({ el, condition: 'style-hidden', visible: false, type: 'hidden-form' });
       }
     }
 
     return sections;
   }
 
-  // Detect if form has dynamic content that might appear later
+  // ─── Dynamic form potential detection ────────────────────────────────────
   function detectDynamicFormPotential() {
-    // Look for triggers that might reveal form content
     const triggers = document.querySelectorAll([
-      '[data-toggle]',
-      '[data-target]',
-      '[data-reveal]',
-      '[data-expand]',
-      '[class*="toggle"]',
-      '[class*="trigger"]',
-      '[class*="accordion"]',
-      '[class*="collapsible"]',
-      '.form-trigger',
-      '.field-revealer'
+      '[data-toggle]','[data-target]','[data-reveal]','[data-expand]',
+      '[class*="toggle"]','[class*="trigger"]','[class*="accordion"]',
+      '[class*="collapsible"]','.form-trigger','.field-revealer'
     ].join(', '));
 
-    // Look for tabs that might contain form content
-    const tabs = document.querySelectorAll([
-      '[role="tab"]',
-      '[class*="tab"]',
-      '.tab-button',
-      '[data-tab]'
-    ].join(', '));
+    const tabs = document.querySelectorAll(
+      '[role="tab"], [class*="tab"], .tab-button, [data-tab]'
+    );
 
-    // Check if any tabs contain form elements
     const tabsWithForms = [...tabs].filter(tab => {
-      const target = tab.getAttribute('aria-controls') || 
-                     tab.getAttribute('data-target') || 
+      const target = tab.getAttribute('aria-controls') ||
+                     tab.getAttribute('data-target') ||
                      tab.getAttribute('href');
       if (target) {
         const targetEl = document.getElementById(target) || document.querySelector(target);
@@ -351,41 +333,127 @@ window.FormScanner = (() => {
     };
   }
 
-  // Main scan function
+  // ─── Page form intent scoring ─────────────────────────────────────────────
+  // Returns a 0–1 confidence that this page IS or WILL BE a form page,
+  // even when no <input> elements are present yet (SPA not yet rendered).
+  function getPageFormIntent() {
+    const url    = (window.location.href   || '').toLowerCase();
+    const path   = (window.location.pathname || '').toLowerCase();
+    const title  = (document.title          || '').toLowerCase();
+    const h1Text = [...document.querySelectorAll('h1,h2')].map(h => h.textContent).join(' ').toLowerCase();
+    const bodySnippet = (document.body?.textContent || '').slice(0, 3000).toLowerCase();
+
+    const signals = [];
+
+    // ── URL / path signals (high confidence) ─────────────────────────────
+    const urlFormPatterns = [
+      { re: /\/forms?\//,            score: 0.5,  label: 'url:forms-path' },
+      { re: /\/rsvp/,               score: 0.55, label: 'url:rsvp' },
+      { re: /\/register/,           score: 0.45, label: 'url:register' },
+      { re: /\/registration/,       score: 0.50, label: 'url:registration' },
+      { re: /\/apply/,              score: 0.45, label: 'url:apply' },
+      { re: /\/application/,        score: 0.45, label: 'url:application' },
+      { re: /\/signup|\/sign-up/,   score: 0.40, label: 'url:signup' },
+      { re: /\/contact/,            score: 0.35, label: 'url:contact' },
+      { re: /\/enroll/,             score: 0.45, label: 'url:enroll' },
+      { re: /\/submit/,             score: 0.40, label: 'url:submit' },
+      { re: /withgoogle\.com/,      score: 0.25, label: 'domain:google-events' },
+      { re: /typeform\.com/,        score: 0.65, label: 'domain:typeform' },
+      { re: /forms\.gle|forms\.google/, score: 0.65, label: 'domain:google-forms' },
+      { re: /jotform\.com/,         score: 0.65, label: 'domain:jotform' },
+      { re: /airtable\.com/,        score: 0.45, label: 'domain:airtable' },
+      { re: /eventbrite\.com/,      score: 0.40, label: 'domain:eventbrite' },
+      { re: /lu\.ma|luma\.events/,  score: 0.40, label: 'domain:luma' },
+    ];
+    for (const p of urlFormPatterns) {
+      if (p.re.test(url) || p.re.test(path)) {
+        signals.push({ label: p.label, score: p.score });
+      }
+    }
+
+    // ── Title / heading signals ──────────────────────────────────────────
+    const textFormPatterns = [
+      { re: /register|registration/,        score: 0.35, label: 'text:register' },
+      { re: /rsvp/,                          score: 0.40, label: 'text:rsvp' },
+      { re: /apply|application/,            score: 0.35, label: 'text:apply' },
+      { re: /sign up|signup/,               score: 0.30, label: 'text:signup' },
+      { re: /enroll|enrolment/,             score: 0.35, label: 'text:enroll' },
+      { re: /contact us|get in touch/,      score: 0.25, label: 'text:contact' },
+      { re: /submit|submission/,            score: 0.25, label: 'text:submit' },
+      { re: /fill (in|out)|complete (the |this )?(form|registration)/, score: 0.35, label: 'text:fill-form' },
+      { re: /your (name|email|details)/,    score: 0.30, label: 'text:your-info' },
+      { re: /required fields|required \*/,  score: 0.45, label: 'text:required-fields' },
+      { re: /accelerator|program|cohort/,   score: 0.15, label: 'text:accelerator' },
+    ];
+    const textToSearch = title + ' ' + h1Text + ' ' + bodySnippet;
+    for (const p of textFormPatterns) {
+      if (p.re.test(textToSearch)) {
+        signals.push({ label: p.label, score: p.score });
+      }
+    }
+
+    // ── DOM structural signals ────────────────────────────────────────────
+    const hasSubmitButton = !!document.querySelector(
+      'button[type="submit"], input[type="submit"], ' +
+      'button:not([type]), [role="button"][class*="submit"]'
+    );
+    if (hasSubmitButton) signals.push({ label: 'dom:submit-button', score: 0.30 });
+
+    const hasFormEl = !!document.querySelector('form');
+    if (hasFormEl) signals.push({ label: 'dom:form-element', score: 0.25 });
+
+    const hasLabelEls = document.querySelectorAll('label').length > 2;
+    if (hasLabelEls) signals.push({ label: 'dom:labels', score: 0.20 });
+
+    // Angular / React app roots (SPA — form probably pending render)
+    const isSPA = !!(document.querySelector('[ng-version], [data-reactroot], #__next, #app, #root'));
+    if (isSPA && signals.length > 0) signals.push({ label: 'dom:spa-root', score: 0.10 });
+
+    // ── Cap and combine ────────────────────────────────────────────────────
+    // Use diminishing returns: each signal adds less as confidence grows
+    let score = 0;
+    for (const s of signals) {
+      score = score + s.score * (1 - score); // diminishing returns
+    }
+    score = Math.min(score, 1);
+
+    return {
+      score,
+      isLikelyFormPage: score >= 0.40,
+      signals,
+      isSPA
+    };
+  }
+
+  // ─── Main scan function ───────────────────────────────────────────────────
   function scan() {
     const allInputEls = window.DomUtils.getAllInputs();
     const fields = [];
-    const seen = new Set();
+    const seen = new WeakSet(); // Use WeakSet for DOM elements
 
     for (const el of allInputEls) {
-      // Deduplicate
       if (seen.has(el)) continue;
       seen.add(el);
-
-      // Skip hidden / disabled
       if (el.type === 'hidden') continue;
       if (el.getAttribute('aria-hidden') === 'true') continue;
 
-      const field = describeField(el);
-      fields.push(field);
+      fields.push(describeField(el));
     }
 
-    // Sort by DOM order (visual top-to-bottom)
+    // Sort by DOM order
     fields.sort((a, b) => {
       const posA = a.el.getBoundingClientRect().top;
       const posB = b.el.getBoundingClientRect().top;
       return posA - posB;
     });
 
-    const wizard = detectWizardContext();
+    const wizard      = detectWizardContext();
     const conditionals = detectConditionalSections();
-    const dynamic = detectDynamicFormPotential();
-    
-    // Enhanced form detection for modern applications
+    const dynamic     = detectDynamicFormPotential();
     const modernForms = window.DomUtils.detectModernForms();
-    const eventForms = window.DomUtils.detectEventForms();
+    const eventForms  = window.DomUtils.detectEventForms();
 
-    // Radio groups — group them
+    // Radio groups
     const radioGroups = {};
     for (const f of fields) {
       if (f.inputClass === 'radio' && f.name) {
@@ -417,198 +485,244 @@ window.FormScanner = (() => {
     };
   }
 
-  // Form type detection based on field analysis and page context
+  // ─── Scan + context: always returns something useful ─────────────────────
+  // Even when no inputs exist yet, returns intent + structural hints.
+  function scanWithContext() {
+    const result = scan();
+    const intent = getPageFormIntent();
+    return {
+      ...result,
+      intent,
+      isEmpty: result.fields.length === 0,
+      message: result.fields.length > 0
+        ? `Found ${result.fields.length} field(s)`
+        : intent.isLikelyFormPage
+          ? 'No fields yet — form is likely pending render (SPA)'
+          : 'No form detected on this page'
+    };
+  }
+
+  // ─── MutationObserver — watch for form inputs appearing ──────────────────
+  // callback(scanResult) is called once when inputs appear (or timeout hits).
+  // Returns a stop() function.
+  function watchForForms(callback, options = {}) {
+    const {
+      timeout       = 15000,   // stop watching after 15s
+      debounceMs    = 300,     // debounce rapid DOM changes
+      minFields     = 1,       // minimum inputs before firing
+      invokeNow     = false,   // fire immediately if fields already present
+    } = options;
+
+    let timer = null;
+    let debounce = null;
+    let stopped = false;
+    let fired = false;
+    let observer = null;
+
+    function tryFire() {
+      if (stopped || fired) return;
+      try {
+        const result = scan();
+        const visibleFillable = result.visibleFields.filter(
+          f => !['submit','button','reset','hidden'].includes(f.type)
+        );
+        if (visibleFillable.length >= minFields) {
+          fired = true;
+          stop();
+          callback(result);
+        }
+      } catch (error) {
+        console.error('[FormScanner] Error during tryFire:', error);
+        // Don't stop on error, continue watching
+      }
+    }
+
+    function onMutation() {
+      if (stopped) return;
+      clearTimeout(debounce);
+      debounce = setTimeout(tryFire, debounceMs);
+    }
+
+    try {
+      observer = new MutationObserver(onMutation);
+      observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'hidden', 'aria-hidden', 'class']
+      });
+    } catch (error) {
+      console.error('[FormScanner] Failed to create MutationObserver:', error);
+      // Fallback to periodic checking
+      const interval = setInterval(tryFire, 1000);
+      timer = setTimeout(() => {
+        clearInterval(interval);
+        if (!fired) callback(scan());
+      }, timeout);
+      return { stop: () => { clearInterval(interval); clearTimeout(timer); } };
+    }
+
+    // Timeout hard stop
+    timer = setTimeout(() => {
+      if (!fired) {
+        stop();
+        // Still call back with whatever we have (might be 0 fields)
+        try {
+          callback(scan());
+        } catch (error) {
+          console.error('[FormScanner] Error in timeout callback:', error);
+        }
+      }
+    }, timeout);
+
+    function stop() {
+      if (stopped) return;
+      stopped = true;
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+      clearTimeout(timer);
+      clearTimeout(debounce);
+    }
+
+    // Check immediately
+    if (invokeNow) tryFire();
+
+    return { stop };
+  }
+
+  // ─── Form type detection ──────────────────────────────────────────────────
   function detectFormType(scanResult = null) {
-    const result = scanResult || window.FormScanner.scan();
+    const result = scanResult || scan();
     const fields = result.fields || [];
     if (fields.length === 0) {
-      // Check if there's potential for dynamic forms
-      if (result.dynamic?.hasTabsWithForms || result.dynamic?.hasTriggers) {
-        return 'dynamic-potential'
-      }
+      if (result.dynamic?.hasTabsWithForms || result.dynamic?.hasTriggers) return 'dynamic-potential';
       return 'none';
     }
 
-    // Count field types
-    const fieldCounts = {
-      personal: 0,      // name, email, phone, address
-      login: 0,         // username, password
-      search: 0,        // search, query, keyword
-      message: 0,       // message, comment, feedback
-      application: 0,   // job, company, experience
-      payment: 0,       // card, billing, payment
-      general: 0        // other inputs
-    };
+    const fieldCounts = { personal:0, login:0, search:0, message:0, application:0, payment:0, event:0, general:0 };
+    const eventSemantics = ['attendanceType','dietaryRestrictions','tshirtSize','companySize',
+                             'companyStage','industry','hearAboutUs','agenda','teamSize',
+                             'fundingAmount','productStage','specialRequirements'];
 
-    // Analyze each field
     for (const field of fields) {
       if (!field.visible) continue;
-      
       const semantic = field.semanticType;
-      const labels = (field.labels || []).join(' ').toLowerCase();
-      const placeholder = (field.placeholder || '').toLowerCase();
-      const name = (field.name || '').toLowerCase();
-      const combined = `${labels} ${placeholder} ${name}`;
+      const combined = [(field.labels || []).join(' '), field.placeholder, field.name].join(' ').toLowerCase();
 
-      // Personal information fields
-      if (['firstName', 'lastName', 'fullName', 'email', 'phone', 'address', 'address2', 'city', 'state', 'zip', 'country', 'dob', 'age', 'gender'].includes(semantic)) {
+      if (['firstName','lastName','fullName','email','phone','address','address2',
+           'city','state','zip','country','dob','age','gender'].includes(semantic)) {
         fieldCounts.personal++;
-      }
-      // Login fields
-      else if (['username', 'password', 'confirmPassword'].includes(semantic) || 
-               /login|signin|sign.*in|log.*in/.test(combined)) {
+      } else if (['username','password','confirmPassword'].includes(semantic) ||
+                 /login|signin|sign.*in|log.*in/.test(combined)) {
         fieldCounts.login++;
-      }
-      // Search fields
-      else if (/search|query|keyword|find|filter|locate/.test(combined)) {
+      } else if (/search|query|keyword|find|filter|locate/.test(combined)) {
         fieldCounts.search++;
-      }
-      // Message fields
-      else if (['message'].includes(semantic) || 
-               /message|comment|feedback|inquiry|enquiry|remark|note/.test(combined)) {
+      } else if (['message','bio'].includes(semantic) ||
+                 /message|comment|feedback|inquiry|enquiry|remark|note/.test(combined)) {
         fieldCounts.message++;
-      }
-      // Application fields
-      else if (['company', 'jobTitle', 'website'].includes(semantic) || 
-               /company|employer|occupation|position|experience|resume|cv/.test(combined)) {
+      } else if (['company','jobTitle','website','linkedIn','twitter','instagram'].includes(semantic) ||
+                 /company|employer|occupation|position|experience|resume|cv/.test(combined)) {
         fieldCounts.application++;
-      }
-      // Payment fields
-      else if (['cardNumber', 'cardExpiry', 'cardCvv', 'cardHolder'].includes(semantic) || 
-               /card|payment|billing|cvv|expiry/.test(combined)) {
+      } else if (['cardNumber','cardExpiry','cardCvv','cardHolder'].includes(semantic) ||
+                 /card|payment|billing|cvv|expiry/.test(combined)) {
         fieldCounts.payment++;
-      }
-      else {
+      } else if (eventSemantics.includes(semantic)) {
+        fieldCounts.event++;
+      } else {
         fieldCounts.general++;
       }
     }
 
-    // Check for sign-in forms
-    if (fieldCounts.login >= 2 && fieldCounts.personal < 2) {
-      return 'signin';
-    }
-
-    // Check for search forms (dominant search fields)
-    if (fieldCounts.search >= 2 || (fieldCounts.search >= 1 && fieldCounts.search > fieldCounts.personal)) {
-      return 'search';
-    }
-
-    // Check for contact forms
-    if (fieldCounts.message >= 1 && fieldCounts.personal >= 1) {
-      return 'contact';
-    }
-
-    // Check for application/registration forms
-    if (fieldCounts.personal >= 3 || (fieldCounts.personal >= 2 && fieldCounts.application >= 1)) {
-      return 'application';
-    }
-
-    // Check for payment forms
-    if (fieldCounts.payment >= 2) {
-      return 'payment';
-    }
-
-    // Check for wizard forms - give them priority
-    if (result.wizard?.isWizard) {
-      return 'wizard';
-    }
-
-    // Mixed form with some fillable fields
-    if (fieldCounts.personal >= 1 || fieldCounts.message >= 1) {
-      return 'mixed';
-    }
-
-    // If we have conditional sections, mark as dynamic
-    if (result.conditionals?.length > 0) {
-      return 'conditional';
-    }
-
+    if (fieldCounts.login >= 2 && fieldCounts.personal < 2) return 'signin';
+    if (fieldCounts.search >= 2 || (fieldCounts.search >= 1 && fieldCounts.search > fieldCounts.personal)) return 'search';
+    if (fieldCounts.event >= 2) return 'event_registration';
+    if (fieldCounts.message >= 1 && fieldCounts.personal >= 1) return 'contact';
+    if (fieldCounts.personal >= 3 || (fieldCounts.personal >= 2 && fieldCounts.application >= 1)) return 'application';
+    if (fieldCounts.payment >= 2) return 'payment';
+    if (result.wizard?.isWizard) return 'wizard';
+    if (fieldCounts.personal >= 1 || fieldCounts.message >= 1 || fieldCounts.event >= 1) return 'mixed';
+    if (result.conditionals?.length > 0) return 'conditional';
     return 'other';
   }
 
-  // Detect if this is a sign-in page based on URL and content
   function isSignInPage() {
-    const url = window.location.href.toLowerCase();
+    const url      = window.location.href.toLowerCase();
     const pathname = window.location.pathname.toLowerCase();
-    const title = document.title.toLowerCase();
-    
-    // URL patterns for sign-in pages
-    const signInPatterns = [
-      /login|signin|sign.*in|log.*in/,
-      /auth|authenticate/,
-      /account|session/,
-      /oauth|sso/
-    ];
-    
-    const urlMatch = signInPatterns.some(pattern => 
-      pattern.test(url) || pattern.test(pathname)
-    );
-    
-    // Content patterns
+    const title    = document.title.toLowerCase();
+    const signInPatterns = [/login|signin|sign.*in|log.*in/,/auth|authenticate/,/account|session/,/oauth|sso/];
+    const urlMatch     = signInPatterns.some(p => p.test(url) || p.test(pathname));
     const contentMatch = /sign.*in|log.*in|login|authenticate/.test(title);
-    
-    // Check for login forms
-    const hasLoginForm = window.FormScanner.scan().fields.some(field => 
+    const hasLoginForm = scan().fields.some(field =>
       field.visible && (
-        field.semanticType === 'username' || 
+        field.semanticType === 'username' ||
         field.semanticType === 'password' ||
         /login|signin/.test((field.labels || []).join(' '))
       )
     );
-    
     return urlMatch || contentMatch || hasLoginForm;
   }
 
-  // Detect if this is a search-dominant page
   function isSearchPage() {
-    const scanResult = window.FormScanner.scan();
-    const searchFields = scanResult.fields.filter(field => 
+    const scanResult = scan();
+    const searchFields = scanResult.fields.filter(field =>
       field.visible && /search|query|keyword|filter/.test(
         [(field.labels || []).join(' '), field.placeholder, field.name].join(' ').toLowerCase()
       )
     );
-    
-    // If most inputs are search-related, it's a search page
-    const totalInputs = scanResult.visibleFields.length;
-    return totalInputs > 0 && searchFields.length / totalInputs > 0.6;
+    const total = scanResult.visibleFields.length;
+    return total > 0 && searchFields.length / total > 0.6;
   }
 
-  // Get fillable field count (excludes search-only fields)
   function getFillableFieldCount(scanResult = null) {
-    const fields = scanResult?.fields || window.FormScanner.scan().fields;
-    return fields.filter(field => 
-      field.visible && 
+    const fields = scanResult?.fields || scan().fields;
+    return fields.filter(field =>
+      field.visible &&
       !/search|query|keyword|filter/.test(
         [(field.labels || []).join(' '), field.placeholder, field.name].join(' ').toLowerCase()
       )
     ).length;
   }
 
-  // Quick check if page has any forms worth filling
   function hasFormsOnPage() {
+    // Check both real inputs AND page intent for SPAs
     const inputs = window.DomUtils.getAllInputs();
-    return inputs.some(el =>
-      el.type !== 'hidden' &&
-      el.type !== 'submit' &&
-      el.type !== 'button' &&
-      el.type !== 'reset' &&
+    const hasInputs = inputs.some(el =>
+      el.type !== 'hidden' && el.type !== 'submit' &&
+      el.type !== 'button' && el.type !== 'reset' &&
       window.DomUtils.isVisible(el)
     );
+    if (hasInputs) return true;
+    // Fallback: high intent means form will probably render
+    return getPageFormIntent().isLikelyFormPage;
   }
 
-  return { 
-    scan, 
-    describeField, 
-    classifyInput, 
-    getSemanticType, 
-    detectWizardContext, 
-    hasFormsOnPage, 
+  return {
+    scan,
+    scanWithContext,
+    watchForForms,
+    getPageFormIntent,
+    describeField,
+    classifyInput,
+    getSemanticType,
+    detectWizardContext,
+    hasFormsOnPage,
     FIELD_SEMANTICS,
     detectFormType,
     isSignInPage,
     isSearchPage,
     getFillableFieldCount,
     detectConditionalSections,
-    detectDynamicFormPotential
+    detectDynamicFormPotential,
   };
 })();
+
+// Export for both environments
+if (isBrowser) {
+  window.FormScanner = FormScanner;
+} else if (typeof module !== 'undefined' && module.exports) {
+  module.exports = FormScanner;
+}
+
+})(typeof window !== 'undefined' ? window : global);

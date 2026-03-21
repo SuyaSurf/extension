@@ -21,7 +21,7 @@ interface PageContext {
   shouldAppear?: boolean
 }
 
-type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake' | 'fill-forms' | 'scan-forms' | 'save-profile' | 'preview-fill'
+type PopupCommand = 'analyze-page' | 'highlight-forms' | 'highlight-buttons' | 'sleep' | 'wake' | 'fill-forms' | 'scan-forms' | 'save-profile' | 'preview-fill' | 'compose-email' | 'smart-reply' | 'summarize-thread' | 'send-message' | 'run-qa-review' | 'quick-test' | 'take-screenshot' | 'schedule-review' | 'test-element';
 
 type RuntimeMessage = {
   type: string
@@ -387,7 +387,237 @@ const CharacterRuntime: React.FC = () => {
       await handlePreviewFill()
       return
     }
+
+    // QA Testing commands
+    if (command === 'run-qa-review') {
+      await handleRunQAReview()
+      return
+    }
+
+    if (command === 'quick-test') {
+      await handleQuickTest()
+      return
+    }
+
+    if (command === 'take-screenshot') {
+      await handleTakeScreenshot()
+      return
+    }
+
+    if (command === 'schedule-review') {
+      await handleScheduleReview()
+      return
+    }
+
+    if (command === 'test-element') {
+      await handleTestElement()
+      return
+    }
+
+    // Mail and Chat command handlers
+    if (command === 'compose-email') {
+      await handleComposeEmail()
+      return
+    }
+
+    if (command === 'smart-reply') {
+      await handleSmartReply()
+      return
+    }
+
+    if (command === 'summarize-thread') {
+      await handleSummarizeThread()
+      return
+    }
+
+    if (command === 'send-message') {
+      await handleSendMessage()
+      return
+    }
   }, [pulseMode, refreshContext])
+
+  // Mail and Chat handlers
+  const handleComposeEmail = React.useCallback(async () => {
+    const pageType = detectPageType()
+    
+    if (!['gmail', 'outlook'].includes(pageType)) {
+      setMessage('Email composition is only available on Gmail and Outlook.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Opening email composer...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'mail-skills',
+        action: 'composeEmail',
+        data: { send: false } // Create as draft by default
+      })
+
+      if (response && response.success) {
+        setMode('awake')
+        setMessage(response.message || 'Email composer opened!')
+        pulseMode('awake', 3000)
+      } else {
+        setIsShocked(true)
+        setMessage(response?.error || 'Failed to open email composer.')
+        window.setTimeout(() => setIsShocked(false), 2000)
+      }
+    } catch (error) {
+      setIsShocked(true)
+      setMessage('Failed to communicate with mail skill.')
+      window.setTimeout(() => setIsShocked(false), 2000)
+    } finally {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }
+  }, [pulseMode])
+
+  const handleSmartReply = React.useCallback(async () => {
+    const pageType = detectPageType()
+    
+    if (!['web.whatsapp.com', 'web.telegram.org'].includes(window.location.hostname)) {
+      setMessage('Smart reply is only available on WhatsApp Web and Telegram Web.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Generating smart reply...')
+
+    try {
+      // Get selected text or last message
+      const selectedText = window.getSelection()?.toString().trim()
+      const messageToReply = selectedText || 'Last message in chat'
+
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'chat-skills',
+        action: 'getSmartReply',
+        data: { message: messageToReply }
+      })
+
+      if (response && response.success && response.suggestions) {
+        setMode('awake')
+        setMessage(`Smart replies: ${response.suggestions.slice(0, 3).join(', ')}`)
+        pulseMode('awake', 4000)
+      } else {
+        setIsShocked(true)
+        setMessage('Could not generate smart replies.')
+        window.setTimeout(() => setIsShocked(false), 2000)
+      }
+    } catch (error) {
+      setIsShocked(true)
+      setMessage('Failed to generate smart reply.')
+      window.setTimeout(() => setIsShocked(false), 2000)
+    } finally {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }
+  }, [pulseMode])
+
+  const handleSummarizeThread = React.useCallback(async () => {
+    const pageType = detectPageType()
+    
+    if (!['gmail', 'outlook', 'web.whatsapp.com', 'web.telegram.org'].includes(window.location.hostname) && pageType !== 'gmail' && pageType !== 'outlook') {
+      setMessage('Summarization is available on Gmail, Outlook, WhatsApp Web, and Telegram Web.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Summarizing conversation...')
+
+    try {
+      const skill = ['gmail', 'outlook'].includes(pageType) ? 'mail-skills' : 'chat-skills'
+      const action = ['gmail', 'outlook'].includes(pageType) ? 'summarizeThread' : 'summarizeChat'
+
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: skill,
+        action: action,
+        data: {}
+      })
+
+      if (response && response.success) {
+        setMode('awake')
+        const summary = response.summary || 'Summary generated successfully'
+        setMessage(summary.length > 200 ? summary.substring(0, 200) + '...' : summary)
+        pulseMode('awake', 5000)
+      } else {
+        setIsShocked(true)
+        setMessage(response?.error || 'Failed to summarize conversation.')
+        window.setTimeout(() => setIsShocked(false), 2000)
+      }
+    } catch (error) {
+      setIsShocked(true)
+      setMessage('Failed to summarize conversation.')
+      window.setTimeout(() => setIsShocked(false), 2000)
+    } finally {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }
+  }, [pulseMode])
+
+  const handleSendMessage = React.useCallback(async () => {
+    const pageType = detectPageType()
+    
+    if (!['web.whatsapp.com', 'web.telegram.org'].includes(window.location.hostname)) {
+      setMessage('Message sending is only available on WhatsApp Web and Telegram Web.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    // Get selected text as message or prompt for input
+    const selectedText = window.getSelection()?.toString().trim()
+    
+    if (!selectedText) {
+      setMessage('Please select the message text you want to send, then click Send Message.')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Sending message...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'chat-skills',
+        action: 'sendMessage',
+        data: { message: selectedText }
+      })
+
+      if (response && response.success) {
+        setMode('awake')
+        setMessage(response.message || 'Message sent successfully!')
+        pulseMode('awake', 3000)
+      } else {
+        setIsShocked(true)
+        setMessage(response?.error || 'Failed to send message.')
+        window.setTimeout(() => setIsShocked(false), 2000)
+      }
+    } catch (error) {
+      setIsShocked(true)
+      setMessage('Failed to send message.')
+      window.setTimeout(() => setIsShocked(false), 2000)
+    } finally {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }
+  }, [pulseMode])
 
   // Form filler command handlers
   const handleScanForms = React.useCallback(async () => {
@@ -585,6 +815,159 @@ const CharacterRuntime: React.FC = () => {
     }, 2000)
   }, [formFillerLoaded])
 
+  // QA Testing command handlers
+  const handleRunQAReview = React.useCallback(async () => {
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Running comprehensive UX review...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'ux-review',
+        action: 'runReview',
+        data: { trigger: 'manual' }
+      })
+
+      if (response && response.success) {
+        setMessage('UX review completed! I found several insights about this page.')
+        setMode('awake')
+        window.setTimeout(() => setMode('idle'), 3000)
+      } else {
+        setMessage(response?.error || 'UX review failed. Please try again.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to run UX review. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 3000)
+  }, [])
+
+  const handleQuickTest = React.useCallback(async () => {
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Running quick QA tests...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'qa-testing',
+        action: 'runTests',
+        data: {}
+      })
+
+      if (response && response.success) {
+        setMessage('Quick tests completed! Everything looks good.')
+        setMode('awake')
+        window.setTimeout(() => setMode('idle'), 2000)
+      } else {
+        setMessage(response?.error || 'Quick tests failed. Please try again.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to run quick tests. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 2000)
+  }, [])
+
+  const handleTakeScreenshot = React.useCallback(async () => {
+    setIsBusy(true)
+    setMessage('Capturing screenshot...')
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'ux-review',
+        action: 'captureScreenshot',
+        data: { label: 'manual' }
+      })
+
+      if (response && response.success) {
+        setMessage('Screenshot captured successfully!')
+        setMode('awake')
+        window.setTimeout(() => setMode('idle'), 1500)
+      } else {
+        setMessage(response?.error || 'Screenshot failed. Please try again.')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to capture screenshot. Please try again.')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+    }, 1500)
+  }, [])
+
+  const handleScheduleReview = React.useCallback(async () => {
+    setMessage('Review scheduling feature coming soon!')
+    setIsShocked(true)
+    window.setTimeout(() => setIsShocked(false), 2000)
+  }, [])
+
+  const handleTestElement = React.useCallback(async () => {
+    setIsBusy(true)
+    setIsThinkingHard(true)
+    setMessage('Testing selected element...')
+
+    try {
+      const selection = window.getSelection()
+      const selectedElement = selection?.anchorNode?.parentElement
+      
+      if (selectedElement) {
+        // Highlight the selected element
+        setHighlightTarget(selectedElement)
+        
+        // Run element-specific analysis
+        const response = await chrome.runtime.sendMessage({
+          type: 'skill-action',
+          skill: 'ux-review',
+          action: 'runReview',
+          data: { 
+            trigger: 'element-test',
+            element: {
+              tagName: selectedElement.tagName,
+              id: selectedElement.id,
+              classes: selectedElement.className,
+              text: selectedElement.textContent?.slice(0, 100)
+            }
+          }
+        })
+
+        if (response && response.success) {
+          setMessage('Element analysis complete!')
+          setMode('awake')
+          window.setTimeout(() => setMode('idle'), 2000)
+        } else {
+          setMessage(response?.error || 'Element analysis failed')
+          setIsShocked(true)
+        }
+      } else {
+        setMessage('Please select an element first')
+        setIsShocked(true)
+      }
+    } catch (error) {
+      setMessage('Failed to test element')
+      setIsShocked(true)
+    }
+
+    window.setTimeout(() => {
+      setIsBusy(false)
+      setIsThinkingHard(false)
+    }, 2000)
+  }, [])
+
   React.useEffect(() => {
     const handleRuntimeMessage = (message: RuntimeMessage) => {
       if (message.type === 'suya-popup-command' && message.command) {
@@ -601,8 +984,23 @@ const CharacterRuntime: React.FC = () => {
       }
     }
 
+    const handleCharacterMessage = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { message, mode, isThinkingHard, isShocked, isBusy } = customEvent.detail
+      setMessage(message)
+      if (mode) setMode(mode)
+      setIsThinkingHard(isThinkingHard || false)
+      setIsShocked(isShocked || false)
+      setIsBusy(isBusy || false)
+    }
+
     chrome.runtime.onMessage.addListener(handleRuntimeMessage)
-    return () => chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
+    window.addEventListener('suya-character-message', handleCharacterMessage)
+    
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
+      window.removeEventListener('suya-character-message', handleCharacterMessage)
+    }
   }, [pulseMode, runCommand])
 
   React.useEffect(() => {

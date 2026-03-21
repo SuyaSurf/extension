@@ -32,6 +32,9 @@
       // Inject UI elements if needed
       injectUIElements();
       
+      // Load QA testing utilities
+      loadQATestingUtilities();
+      
       isInitialized = true;
       console.log('AI Bot Extension: Universal handler initialized');
       
@@ -463,6 +466,7 @@
 
   function handleFormAction(action, params) {
     switch (action) {
+      // Basic legacy actions
       case 'fill-form':
         fillForm(params.formData);
         break;
@@ -471,6 +475,20 @@
         break;
       case 'analyze-form':
         analyzeForm(params.formId);
+        break;
+      
+      // Enhanced Application Writing Skill actions
+      case 'fill-forms':
+        handleFillForms(params);
+        break;
+      case 'scan-forms':
+        handleScanForms(params);
+        break;
+      case 'save-profile':
+        handleSaveProfile(params);
+        break;
+      case 'preview-fill':
+        handlePreviewFill(params);
         break;
       default:
         console.log('AI Bot Extension: Unknown form action:', action);
@@ -1052,6 +1070,112 @@
     document.getElementById('aibot-task-list-close').addEventListener('click', () => {
       taskList.remove();
     });
+  }
+
+  // Load QA testing utilities
+  async function loadQATestingUtilities() {
+    try {
+      // Load character messenger
+      await loadScript(chrome.runtime.getURL('/skills/qa-testing/character-messenger.js'));
+      
+      // Load QA monitoring components
+      await loadScript(chrome.runtime.getURL('/skills/qa-testing/console-monitor.js'));
+      await loadScript(chrome.runtime.getURL('/skills/qa-testing/network-monitor.js'));
+      await loadScript(chrome.runtime.getURL('/skills/qa-testing/page-inspector.js'));
+      await loadScript(chrome.runtime.getURL('/skills/qa-testing/screenshot-recorder.js'));
+      
+      console.log('AI Bot Extension: QA testing utilities loaded');
+    } catch (error) {
+      console.error('AI Bot Extension: Failed to load QA testing utilities:', error);
+    }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      (document.head || document.documentElement).appendChild(script);
+    });
+  }
+
+  // Enhanced Application Writing Skill handlers
+  async function handleFillForms(params) {
+    try {
+      // Send message to background to handle form filling
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'fillForms',
+        data: params || {}
+      });
+      
+      if (response && response.success) {
+        console.log('AI Bot Extension: Forms filled successfully');
+      } else {
+        console.error('AI Bot Extension: Form fill failed:', response?.error);
+      }
+    } catch (error) {
+      console.error('AI Bot Extension: Error filling forms:', error);
+    }
+  }
+
+  async function handleScanForms(params) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'scanForms',
+        data: params || {}
+      });
+      
+      if (response && response.success) {
+        console.log('AI Bot Extension: Forms scanned successfully');
+      } else {
+        console.error('AI Bot Extension: Form scan failed:', response?.error);
+      }
+    } catch (error) {
+      console.error('AI Bot Extension: Error scanning forms:', error);
+    }
+  }
+
+  async function handleSaveProfile(params) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'saveProfile',
+        data: params || {}
+      });
+      
+      if (response && response.success) {
+        console.log('AI Bot Extension: Profile saved successfully');
+      } else {
+        console.error('AI Bot Extension: Profile save failed:', response?.error);
+      }
+    } catch (error) {
+      console.error('AI Bot Extension: Error saving profile:', error);
+    }
+  }
+
+  async function handlePreviewFill(params) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'skill-action',
+        skill: 'application-writing',
+        action: 'previewFill',
+        data: params || {}
+      });
+      
+      if (response && response.success) {
+        console.log('AI Bot Extension: Preview generated successfully');
+      } else {
+        console.error('AI Bot Extension: Preview failed:', response?.error);
+      }
+    } catch (error) {
+      console.error('AI Bot Extension: Error generating preview:', error);
+    }
   }
 
   // Initialize when DOM is ready

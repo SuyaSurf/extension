@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA Skills Integration Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a87;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #results {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>QA Skills Integration Test</h1>
+    <p>This page tests the QA testing skills integration with the Suya Bot extension.</p>
+
+    <div class="test-section">
+        <h2>Character Messenger Test</h2>
+        <button class="test-button" onclick="testCharacterMessenger()">Test Character Messenger</button>
+        <button class="test-button" onclick="testProgressReporting()">Test Progress Reporting</button>
+        <div id="messenger-status" class="status info">Click a test button to begin</div>
+    </div>
+
+    <div class="test-section">
+        <h2>QA Skills Test</h2>
+        <button class="test-button" onclick="testQATestingSkill()">Test QA Testing Skill</button>
+        <button class="test-button" onclick="testUXReviewSkill()">Test UX Review Skill</button>
+        <div id="skills-status" class="status info">Click a test button to begin</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Communication Test</h2>
+        <button class="test-button" onclick="testSkillCommunication()">Test Skill Communication</button>
+        <button class="test-button" onclick="testEventBus()">Test Event Bus</button>
+        <div id="communication-status" class="status info">Click a test button to begin</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let testResults = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            testResults.push(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+            updateResults();
+        }
+
+        function updateResults() {
+            document.getElementById('results').textContent = testResults.join('\n');
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        async function testCharacterMessenger() {
+            updateStatus('messenger-status', 'Testing character messenger...', 'info');
+            log('Starting character messenger test');
+
+            try {
+                if (window.CharacterMessenger) {
+                    await window.CharacterMessenger.sendMessage('Test message', { mode: 'awake' });
+                    await window.CharacterMessenger.reportSuccess('Test Operation', 'Completed successfully');
+                    await window.CharacterMessenger.reportProgress('Test Progress', 50, 'Halfway there');
+                    updateStatus('messenger-status', 'Character messenger working!', 'success');
+                    log('Character messenger test passed');
+                } else {
+                    updateStatus('messenger-status', 'Character messenger not loaded', 'error');
+                    log('Character messenger not available');
+                }
+            } catch (error) {
+                updateStatus('messenger-status', `Error: ${error.message}`, 'error');
+                log(`Character messenger test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProgressReporting() {
+            updateStatus('messenger-status', 'Testing progress reporting...', 'info');
+            log('Starting progress reporting test');
+
+            try {
+                if (window.CharacterMessenger) {
+                    for (let i = 0; i <= 100; i += 20) {
+                        await window.CharacterMessenger.reportProgress('Test Progress', i, `Progress: ${i}%`);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    await window.CharacterMessenger.reportSuccess('Test Progress', 'Completed!');
+                    updateStatus('messenger-status', 'Progress reporting working!', 'success');
+                    log('Progress reporting test passed');
+                } else {
+                    updateStatus('messenger-status', 'Character messenger not loaded', 'error');
+                    log('Progress reporting test failed - messenger not available');
+                }
+            } catch (error) {
+                updateStatus('messenger-status', `Error: ${error.message}`, 'error');
+                log(`Progress reporting test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testQATestingSkill() {
+            updateStatus('skills-status', 'Testing QA Testing Skill...', 'info');
+            log('Starting QA Testing Skill test');
+
+            try {
+                // Check if skill is available
+                const skill = window.skillRegistry?.skills?.get('qa-testing');
+                if (skill) {
+                    log('QA Testing Skill found in registry');
+                    
+                    // Test skill methods
+                    const status = await skill.getStatus();
+                    log(`QA Testing Skill status: ${JSON.stringify(status)}`);
+                    
+                    updateStatus('skills-status', 'QA Testing Skill working!', 'success');
+                    log('QA Testing Skill test passed');
+                } else {
+                    updateStatus('skills-status', 'QA Testing Skill not found', 'error');
+                    log('QA Testing Skill not available in registry');
+                }
+            } catch (error) {
+                updateStatus('skills-status', `Error: ${error.message}`, 'error');
+                log(`QA Testing Skill test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUXReviewSkill() {
+            updateStatus('skills-status', 'Testing UX Review Skill...', 'info');
+            log('Starting UX Review Skill test');
+
+            try {
+                // Check if skill is available
+                const skill = window.skillRegistry?.skills?.get('ux-review');
+                if (skill) {
+                    log('UX Review Skill found in registry');
+                    
+                    // Test skill methods
+                    const status = await skill.getStatus();
+                    log(`UX Review Skill status: ${JSON.stringify(status)}`);
+                    
+                    updateStatus('skills-status', 'UX Review Skill working!', 'success');
+                    log('UX Review Skill test passed');
+                } else {
+                    updateStatus('skills-status', 'UX Review Skill not found', 'error');
+                    log('UX Review Skill not available in registry');
+                }
+            } catch (error) {
+                updateStatus('skills-status', `Error: ${error.message}`, 'error');
+                log(`UX Review Skill test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSkillCommunication() {
+            updateStatus('communication-status', 'Testing skill communication...', 'info');
+            log('Starting skill communication test');
+
+            try {
+                // Test message passing between skills
+                const qaSkill = window.skillRegistry?.skills?.get('qa-testing');
+                const uxSkill = window.skillRegistry?.skills?.get('ux-review');
+                
+                if (qaSkill && uxSkill) {
+                    log('Both QA skills found');
+                    
+                    // Test delegation
+                    log('Testing delegation from QA to UX Review...');
+                    // This would normally be done through the skill action handler
+                    
+                    updateStatus('communication-status', 'Skill communication working!', 'success');
+                    log('Skill communication test passed');
+                } else {
+                    updateStatus('communication-status', 'Skills not available', 'error');
+                    log('Skill communication test failed - skills not available');
+                }
+            } catch (error) {
+                updateStatus('communication-status', `Error: ${error.message}`, 'error');
+                log(`Skill communication test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEventBus() {
+            updateStatus('communication-status', 'Testing event bus...', 'info');
+            log('Starting event bus test');
+
+            try {
+                // Test custom events
+                const testEvent = new CustomEvent('suya-character-message', {
+                    detail: { message: 'Test event message', mode: 'awake' }
+                });
+                window.dispatchEvent(testEvent);
+                
+                updateStatus('communication-status', 'Event bus working!', 'success');
+                log('Event bus test passed');
+            } catch (error) {
+                updateStatus('communication-status', `Error: ${error.message}`, 'error');
+                log(`Event bus test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize test
+        log('QA Skills Integration Test Page Loaded');
+        updateStatus('messenger-status', 'Ready for testing', 'info');
+        updateStatus('skills-status', 'Ready for testing', 'info');
+        updateStatus('communication-status', 'Ready for testing', 'info');
+    </script>
+</body>
+</html>

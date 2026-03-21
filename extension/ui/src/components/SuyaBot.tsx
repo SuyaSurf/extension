@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './SuyaBot.css';
+import SuyaInputInterface from './SuyaInputInterface';
 
 /* =====================================================
    Types
@@ -47,6 +48,7 @@ export interface SuyaBotProps {
   dragRecoveryMinutes?: number;
   shrinkOnDrag?:        boolean;
   onModeChange?: (mode: SuyaMode) => void;
+  onInputSubmit?: (input: string, isVoice: boolean) => void;
 }
 
 /* =====================================================
@@ -129,27 +131,60 @@ const Head: React.FC<{ p: string; skinId?: string; orbId?: string; stroke?: stri
   </>
 );
 
-/* ── Full open eye pair ── */
+/* ── Full open eye pair with animated eyelids + pupil groups ──────────────
+   Structure per eye (SVG z-order, bottom → top):
+     1. Socket outline (dark outer ellipse)
+     2. Sclera (white)
+     3. <g className="pupil-l/r"> — iris + pupil + highlight; CSS saccade drift
+     4. Eyelid overlay (skin-colored ellipse) with className="eye-lid-l/r"
+        transform-box:fill-box + transform-origin:top center means scaleY(0→1)
+        sweeps the lid DOWN from the top of the eye, like a real upper eyelid.
+   The eyelid fill uses the same skin gradient as the face so the lid
+   blends seamlessly when closing.
+──────────────────────────────────────────────────────────────────────────── */
 const Eyes: React.FC<{
-  p: string; irisId?: string;
+  p: string;
+  irisId?: string;
+  skinId?: string;                  /* eyelid fill — defaults to p+'skin' */
   lPupilDx?: number; lPupilDy?: number;
   rPupilDx?: number; rPupilDy?: number;
   lRx?: number; lRy?: number; rRx?: number; rRy?: number;
-}> = ({ p, irisId, lPupilDx=0, lPupilDy=0, rPupilDx=0, rPupilDy=0, lRx=5.8, lRy=6.5, rRx=5.8, rRy=6.5 }) => {
+}> = ({
+  p, irisId, skinId,
+  lPupilDx=0, lPupilDy=0,
+  rPupilDx=0, rPupilDy=0,
+  lRx=5.8, lRy=6.5, rRx=5.8, rRy=6.5,
+}) => {
   const iris = irisId ?? `${p}iris`;
+  const lid  = skinId ?? `${p}skin`;
   return (<>
-    {/* Left */}
-    <ellipse cx="17" cy="38" rx="10"  ry="11.5" fill="#1A0A02"/>
-    <ellipse cx="17" cy="38" rx="8.5" ry="10"   fill="white"/>
-    <ellipse cx={17+lPupilDx} cy={38+lPupilDy} rx={lRx} ry={lRy} fill={`url(#${iris})`}/>
-    <circle  cx={17+lPupilDx} cy={38+lPupilDy} r="3.5"              fill="#05152A"/>
-    <circle  cx={17+lPupilDx+2.2} cy={38+lPupilDy-3} r="1.9"       fill="rgba(255,255,255,.93)"/>
-    {/* Right */}
-    <ellipse cx="47" cy="38" rx="10"  ry="11.5" fill="#1A0A02"/>
-    <ellipse cx="47" cy="38" rx="8.5" ry="10"   fill="white"/>
-    <ellipse cx={47+rPupilDx} cy={38+rPupilDy} rx={rRx} ry={rRy} fill={`url(#${iris})`}/>
-    <circle  cx={47+rPupilDx} cy={38+rPupilDy} r="3.5"              fill="#05152A"/>
-    <circle  cx={47+rPupilDx+2.2} cy={38+rPupilDy-3} r="1.9"       fill="rgba(255,255,255,.93)"/>
+    {/* ── Left eye ── */}
+    <g>
+      {/* 1. Socket */}
+      <ellipse cx="17" cy="38" rx="10"  ry="11.5" fill="#1A0A02"/>
+      {/* 2. Sclera */}
+      <ellipse cx="17" cy="38" rx="8.5" ry="10"   fill="white"/>
+      {/* 3. Iris + pupil (CSS animates this group for saccades) */}
+      <g className="pupil-l">
+        <ellipse cx={17+lPupilDx} cy={38+lPupilDy} rx={lRx} ry={lRy} fill={`url(#${iris})`}/>
+        <circle  cx={17+lPupilDx} cy={38+lPupilDy} r="3.5"              fill="#05152A"/>
+        <circle  cx={17+lPupilDx+2.2} cy={38+lPupilDy-3} r="1.9"        fill="rgba(255,255,255,.93)"/>
+      </g>
+      {/* 4. Eyelid overlay — CSS blinkLid animates scaleY(0→1) from top */}
+      <ellipse cx="17" cy="38" rx="8.5" ry="10" fill={`url(#${lid})`} className="eye-lid-l"/>
+    </g>
+
+    {/* ── Right eye ── */}
+    <g>
+      <ellipse cx="47" cy="38" rx="10"  ry="11.5" fill="#1A0A02"/>
+      <ellipse cx="47" cy="38" rx="8.5" ry="10"   fill="white"/>
+      <g className="pupil-r">
+        <ellipse cx={47+rPupilDx} cy={38+rPupilDy} rx={rRx} ry={rRy} fill={`url(#${iris})`}/>
+        <circle  cx={47+rPupilDx} cy={38+rPupilDy} r="3.5"              fill="#05152A"/>
+        <circle  cx={47+rPupilDx+2.2} cy={38+rPupilDy-3} r="1.9"        fill="rgba(255,255,255,.93)"/>
+      </g>
+      <ellipse cx="47" cy="38" rx="8.5" ry="10" fill={`url(#${lid})`} className="eye-lid-r"/>
+    </g>
   </>);
 };
 
@@ -171,14 +206,11 @@ const MeatChunk: React.FC<{
 /* ── Large palm that covers face ── */
 const CoveringHand: React.FC<{ p: string; flip?: boolean; cls?: string }> = ({ p, flip, cls }) => (
   <g className={cls} transform={flip ? 'translate(64,0) scale(-1,1)' : undefined}>
-    {/* Four fingers pointing upward */}
     <ellipse cx="10" cy="26" rx="3.8" ry="5.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".8"/>
     <ellipse cx="17" cy="23" rx="3.8" ry="5.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".8"/>
     <ellipse cx="24" cy="22" rx="3.8" ry="5.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".8"/>
     <ellipse cx="31" cy="24" rx="3.8" ry="5.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".8"/>
-    {/* Thumb out to side */}
     <ellipse cx="5"  cy="36" rx="4.5" ry="3.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".8"/>
-    {/* Big palm */}
     <rect x="5" y="28" width="30" height="32" rx="7" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".9"/>
     <path d="M10 38 Q20 42 33 38" stroke="rgba(180,90,20,.22)" strokeWidth="1"   fill="none" strokeLinecap="round"/>
     <path d="M10 46 Q18 50 28 46" stroke="rgba(180,90,20,.16)" strokeWidth=".8"  fill="none" strokeLinecap="round"/>
@@ -202,16 +234,12 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
           <stop offset="100%" stopColor="#FF6B1A"/>
         </radialGradient>
       </defs>
-      {/* Just the antenna + orb */}
       <line x1="10" y1="3" x2="10" y2="7"  stroke="#C8804A" strokeWidth="1.5" strokeLinecap="round"/>
       <circle cx="10" cy="2" r="3.5" fill={`url(#${p}orb_s)`}/>
       <circle cx="9"  cy="1" r=".9"  fill="rgba(255,255,255,.6)"/>
-      {/* Tiny face stub */}
       <circle cx="10" cy="16" r="8.5" fill="#FFD49A" stroke="#D88040" strokeWidth=".8"/>
-      {/* dot eyes */}
       <circle cx="7"  cy="15.5" r="1.8" fill="#1A0A02"/>
       <circle cx="13" cy="15.5" r="1.8" fill="#1A0A02"/>
-      {/* smile */}
       <path d="M7 19 Q10 21 13 19" stroke="#A04820" strokeWidth="1" fill="none" strokeLinecap="round"/>
     </svg>
   );
@@ -223,7 +251,6 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
       <line x1="32" y1="9" x2="32" y2="15" stroke="#888" strokeWidth="1.8" strokeLinecap="round"/>
       <circle cx="32" cy="7" r="4" fill={`url(#${p}orb_off)`}/>
       <circle cx="32" cy="40" r="28" fill={`url(#${p}skin_grey)`} stroke="#808080" strokeWidth="1"/>
-      {/* X eyes */}
       {([17,47] as const).map((cx,i) => (
         <g key={i}>
           <ellipse cx={cx} cy={37} rx="10" ry="11.5" fill="#404040"/>
@@ -235,7 +262,6 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
       <path d="M9 25 Q17 24 25 25"  stroke="#909090" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
       <path d="M39 25 Q47 24 55 25" stroke="#909090" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
       <path d="M22 56 L42 56" stroke="#909090" strokeWidth="2" strokeLinecap="round"/>
-      {/* No-signal icon */}
       <circle cx="52" cy="12" r="2" fill="#B0B0B0" opacity=".5"/>
       <line x1="55" y1="9"  x2="58" y2="5"  stroke="#B0B0B0" strokeWidth="1.4" strokeLinecap="round" opacity=".5"/>
       <line x1="58" y1="12" x2="62" y2="7"  stroke="#B0B0B0" strokeWidth="1.4" strokeLinecap="round" opacity=".35"/>
@@ -247,7 +273,6 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
       <Head p={p} skinId={`${p}skin_pale`} orbId={`${p}orb_sleep`} stroke="#B07030"/>
-      {/* Closed eyes */}
       {([17,47] as const).map((cx,i) => (
         <g key={i}>
           <ellipse cx={cx} cy={38} rx="10"  ry="11.5" fill="#2A1A0A"/>
@@ -268,7 +293,7 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
       <Head p={p} stroke="#C07838"/>
-      {/* Open eyes, pupils shifted slightly downward — heavy/drowsy */}
+      {/* Eyes with pupils shifted down (drowsy) — eyelid + saccade via Eyes component */}
       <Eyes p={p} lPupilDy={2} rPupilDy={2}/>
       <path d="M9.5 25 Q17 23.5 24 25"  stroke="#9A6030" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
       <path d="M40 25 Q47 23.5 54.5 25" stroke="#9A6030" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
@@ -281,16 +306,12 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
       <Head p={p} stroke="#C07838"/>
-      {/* Open eyes, pupils shoved hard LEFT — that glazed sideways stare */}
+      {/* Pupils hard-left from props; CSS boredJitter adds micro-variation on top */}
       <Eyes p={p} lPupilDx={-4.5} rPupilDx={-4.5}/>
-      {/* Flat low brows */}
       <path d="M9 26.5 Q17 27.5 25 26.5"  stroke="#9A6030" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
       <path d="M39 26.5 Q47 27.5 55 26.5" stroke="#9A6030" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
-      {/* Frown */}
       <path d="M22 58 Q32 54.5 42 58" stroke="#A06030" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-      {/* Sweat drop */}
       <path d="M56 32 Q58 38 56 42 Q54 38 56 32Z" fill="#80C8FF" opacity=".6"/>
-      {/* Ellipsis */}
       <circle cx="24" cy="67" r="1.8" fill="#C09060" opacity=".5"/>
       <circle cx="32" cy="67" r="1.8" fill="#C09060" opacity=".5"/>
       <circle cx="40" cy="67" r="1.8" fill="#C09060" opacity=".5"/>
@@ -311,10 +332,10 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     </svg>
   );
 
+  /* ── Happy: squinting arc eyes — no lid/pupil needed (eyes are closed shapes) ── */
   if (expr === 'happy') return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/><Head p={p}/>
-      {/* Squinting joy arcs */}
       <ellipse cx="17" cy="38" rx="10" ry="11.5" fill="#1A0A02"/>
       <ellipse cx="17" cy="38" rx="8.5" ry="10"  fill="white"/>
       <path d="M7.5 38 Q17 27 26.5 38" fill="#1A0A02"/>
@@ -333,6 +354,7 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
   if (expr === 'thinking') return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/><Head p={p}/>
+      {/* Right pupil nudged up-left by props; saccades drift around that base */}
       <Eyes p={p} rPupilDx={-2} rPupilDy={-2}/>
       <path d="M9 25 Q17 22.5 24.5 24.5"  stroke="#7A3A10" strokeWidth="3"   strokeLinecap="round" fill="none"/>
       <path d="M39.5 22 Q47 19 55 21.5"   stroke="#7A3A10" strokeWidth="3"   strokeLinecap="round" fill="none"/>
@@ -343,20 +365,37 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     </svg>
   );
 
+  /* ── Thinking-hard: focus iris, heavy drooping lid + eyelid blink overlay ──
+     The drooping skin path is a permanent aesthetic lid (always visible).
+     The .eye-lid-l/.eye-lid-r ellipses sit on top for actual blink animation,
+     matching the skin gradient so they're invisible until the blink fires.
+     Pupils are wrapped in pupil-l/r groups (CSS sets animation:none for
+     thinking-hard, giving the locked intense stare).
+  ── */
   if (expr === 'thinking_hard') return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/><Head p={p}/>
-      {/* Heavy squint: focus iris + thick drooping skin lid */}
       {([17,47] as const).map((cx,i) => (
         <g key={i}>
+          {/* Socket + sclera */}
           <ellipse cx={cx}   cy={38}    rx="10"  ry="11.5" fill="#1A0A02"/>
           <ellipse cx={cx}   cy={38}    rx="8.5" ry="10"   fill="white"/>
-          <ellipse cx={cx+(i===1?2:0)} cy={38} rx="5.8" ry="6.5" fill={`url(#${p}iris_focus)`}/>
-          <circle  cx={cx+(i===1?2:0)} cy={38} r="3.5"           fill="#200408"/>
-          <circle  cx={cx+(i===1?3.8:2)} cy={35} r="1.7"         fill="rgba(255,255,255,.9)"/>
-          {/* Heavy drooping lid — skin-toned path over top of eye */}
+          {/* Iris + pupil in animatable group (animation:none via CSS for thinking-hard) */}
+          <g className={i === 0 ? 'pupil-l' : 'pupil-r'}>
+            <ellipse cx={cx+(i===1?2:0)} cy={38} rx="5.8" ry="6.5" fill={`url(#${p}iris_focus)`}/>
+            <circle  cx={cx+(i===1?2:0)} cy={38} r="3.5"           fill="#200408"/>
+            <circle  cx={cx+(i===1?3.8:2)} cy={35} r="1.7"         fill="rgba(255,255,255,.9)"/>
+          </g>
+          {/* Permanent aesthetic drooping lid (always partially visible) */}
           <path d={`M${cx-9.5} ${34} Q${cx} ${42} ${cx+9.5} ${34}`} fill={`url(#${p}skin)`}/>
           <path d={`M${cx-9.5} ${34} Q${cx} ${42} ${cx+9.5} ${34}`} stroke="#7A3010" strokeWidth=".8" fill="none"/>
+          {/* Blink eyelid overlay — sits on top of the drooping lid so blink
+              still reads correctly; uses same skin gradient to blend */}
+          <ellipse
+            cx={cx} cy={38} rx="8.5" ry="10"
+            fill={`url(#${p}skin)`}
+            className={i === 0 ? 'eye-lid-l' : 'eye-lid-r'}
+          />
         </g>
       ))}
       {/* V-brows almost meeting */}
@@ -373,56 +412,30 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
     </svg>
   );
 
-  /* ─────────── SHOCKED — both palms cover full face, spring in, hold ─────────── */
+  /* ─────────── SHOCKED — palms cover full face ─────────── */
   if (expr === 'shocked') return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
       <Head p={p}/>
-      {/* Brows peeking over fingers — shot to very top */}
       <path d="M8 20 Q17 15 26 19"  stroke="#7A3A10" strokeWidth="3.2" strokeLinecap="round" fill="none"/>
       <path d="M38 19 Q47 15 56 20" stroke="#7A3A10" strokeWidth="3.2" strokeLinecap="round" fill="none"/>
-      {/* Shock star bursts */}
       <path d="M4 16 L5.5 13.5 L7 16 L4 17 Z"   fill="#FFD020" opacity=".85"/>
       <path d="M57 16 L58.5 13.5 L60 16 L57 17 Z" fill="#FFD020" opacity=".85"/>
-      {/* LEFT palm */}
       <CoveringHand p={p} cls="hand-cover-l"/>
-      {/* RIGHT palm (mirrored) */}
       <CoveringHand p={p} flip cls="hand-cover-r"/>
     </svg>
   );
 
-  /* ─────────── EATING ─────────────────────────────────────────────
-     Three meat chunks sit on the skewer at positions along the stick.
-     Each chunk has its own CSS class (eat-c0 / eat-c1 / eat-c2).
-     The @keyframes eatChunk translates each chunk toward the mouth
-     (upper-left in the rotated stick coordinate system = right cheek
-      of the face = roughly x:48, y:48 in head coordinates).
-     Stagger: 0s / 0.8s / 1.6s  — only ONE vanishes at a time.
-     The head is drawn ON TOP so the stick tip disappears behind the cheek.
-  ──────────────────────────────────────────────────────────────────── */
+  /* ── Eating: bliss closed eyes — no pupil/lid animation needed ── */
   if (expr === 'eating') return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
 
-      {/* ── Skewer group behind head ── */}
       <g className="sk-nudge">
-        {/* Bamboo stick: from far right toward mouth (x≈50,y≈45) */}
         <line x1="50" y1="45" x2="90" y2="68" stroke="#7A4825" strokeWidth="2.8" strokeLinecap="round"/>
-
-        {/*
-          Chunk positions along the stick (in document coords, no rotation wrapper
-          so the CSS translate moves them straight toward the mouth):
-            Chunk 0 = at x:58,y:50  (closest to mouth — vanishes FIRST, delay 0s)
-            Chunk 1 = at x:70,y:57  (middle — delay 0.8s)
-            Chunk 2 = at x:82,y:64  (furthest — delay 1.6s)
-          eatChunk translates: translate(-9px,-5px) which is toward the mouth
-          at upper-left of each chunk's position on the stick.
-        */}
         <MeatChunk p={p} x={58} y={50} rot={-27} cls="eat-c0"/>
         <MeatChunk p={p} x={70} y={57} rot={-27} cls="eat-c1"/>
         <MeatChunk p={p} x={82} y={64} rot={-27} cls="eat-c2"/>
-
-        {/* Right hand gripping stick at bottom-right */}
         <g transform="translate(90,68) rotate(-27)">
           <ellipse cx="-5.5" cy="-6"   rx="2.8" ry="3.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".7"/>
           <ellipse cx="-1.8" cy="-7.5" rx="2.8" ry="3.2" fill={`url(#${p}hand)`} stroke="#C88040" strokeWidth=".7"/>
@@ -433,10 +446,9 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
         </g>
       </g>
 
-      {/* ── Head drawn ON TOP ── */}
       <Head p={p}/>
 
-      {/* Squeezed-shut bliss eyes — U-arc covers bottom half */}
+      {/* Bliss-closed eyes — already shut, blink animation irrelevant */}
       {([17,47] as const).map((cx,i) => (
         <g key={i}>
           <ellipse cx={cx} cy={38} rx="10"  ry="11.5" fill="#1A0A02"/>
@@ -447,37 +459,44 @@ const SuyaFace: React.FC<FaceProps> = ({ expr, mode, p }) => {
         </g>
       ))}
 
-      {/* Pleased raised brows */}
       <path d="M8.5 22 Q17 19 24.5 21.5"  stroke="#8A3A08" strokeWidth="3.2" strokeLinecap="round" fill="none"/>
       <path d="M39.5 21.5 Q47 19 55.5 22" stroke="#8A3A08" strokeWidth="3.2" strokeLinecap="round" fill="none"/>
-
-      {/* Puffed right cheek — food bulge */}
       <ellipse cx="53" cy="47" rx="10" ry="8" fill={`url(#${p}blush)`} opacity=".9"/>
-
-      {/* Mouth — closed chewing, upturned right corner */}
       <path d="M21 55.5 Q32 57.5 42 54.5"    stroke="#A04820" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
       <path d="M42 54.5 Q45.5 55.5 44.5 58"  stroke="#A04820" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
-
-      {/* Left mild blush */}
       <ellipse cx="7" cy="47" rx="5.5" ry="4" fill={`url(#${p}blush)`} opacity=".4"/>
-      {/* Satisfaction sparkle */}
       <path d="M6 24 L7 22 L8 24 L6 25 Z" fill="#FFD060" opacity=".65"/>
     </svg>
   );
 
-  /* ─────────── LISTENING ─────────── */
+  /* ── Listening: owl-big eyes with pupil saccade + eyelid blink ─────────
+     Eyes use a larger geometry (rx=11, ry=12.5 socket; rx=9.5, ry=11 sclera)
+     so the eyelid ellipse matches the sclera: rx=9.5, ry=11.
+     CSS uses blinkLidWide keyframe to match the taller eye.
+     Pupil groups get pupilListenL/R animations (attentive small tracking).
+  ── */
   return (
     <svg width="64" height="76" viewBox="0 0 64 76" fill="none" overflow="visible">
       <Defs p={p}/>
       <Head p={p} stroke="#80B8C8"/>
-      {/* Huge owl eyes */}
       {([17,47] as const).map((cx,i) => (
         <g key={i}>
+          {/* Socket — slightly bigger for owl look */}
           <ellipse cx={cx} cy={38} rx="11"  ry="12.5" fill="#1A0A02"/>
+          {/* Sclera */}
           <ellipse cx={cx} cy={38} rx="9.5" ry="11"   fill="white"/>
-          <ellipse cx={cx} cy={38} rx="7"   ry="8"    fill={`url(#${p}iris_listen)`}/>
-          <circle  cx={cx} cy={38} r="4.2"            fill="#021C30"/>
-          <circle  cx={cx+2.5} cy={34.5} r="2.3"      fill="rgba(255,255,255,.95)"/>
+          {/* Iris + pupil wrapped for saccade animation */}
+          <g className={i === 0 ? 'pupil-l' : 'pupil-r'}>
+            <ellipse cx={cx} cy={38} rx="7"   ry="8"    fill={`url(#${p}iris_listen)`}/>
+            <circle  cx={cx} cy={38} r="4.2"            fill="#021C30"/>
+            <circle  cx={cx+2.5} cy={34.5} r="2.3"      fill="rgba(255,255,255,.95)"/>
+          </g>
+          {/* Eyelid overlay — matches sclera rx/ry for wide owl eyes */}
+          <ellipse
+            cx={cx} cy={38} rx="9.5" ry="11"
+            fill={`url(#${p}skin)`}
+            className={i === 0 ? 'eye-lid-l' : 'eye-lid-r'}
+          />
         </g>
       ))}
       <path d="M8 24 Q17 21.5 25 23.5"  stroke="#6898B8" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
@@ -539,6 +558,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   dragRecoveryMinutes = 60,
   shrinkOnDrag = true,
   onModeChange,
+  onInputSubmit,
 }) => {
   const uid = useRef(`sb${++_uid}`).current;
   const [pos,       setPos]    = useState<Position>({ x: 20, y: 20, corner: 'bottom-right' });
@@ -547,11 +567,13 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
   const [hlBox,     setHlBox]  = useState<DOMRect | null>(null);
   const [whoosh,    setWhoosh] = useState<'idle' | 'out' | 'in'>('idle');
   const [bubblePos, setBubblePos] = useState<BubblePosition | null>(null);
+  const [showInputInterface, setShowInputInterface] = useState(false);
+  const [listeningState, setListeningState] = useState<'idle' | 'starting' | 'listening' | 'processing' | 'error'>('idle');
+  
   const botRef    = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const prevPos   = useRef<Position | null>(null);
   
-  // Drag state refs
   const dragRef = useRef<DragState>({
     isDragging:      false,
     startX:          0,
@@ -563,10 +585,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     recoveryTimerId: null,
   });
 
-  // Remember mode before shrink so we can restore it
   const preShrinkMode = useRef<SuyaMode>('awake');
-  
-  // Prop defaults
   const recoveryMs = dragRecoveryMinutes * 60 * 1000;
 
   const findOptimal = useCallback((): Position => {
@@ -616,7 +635,6 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     }, WHOOSH_DUR * 0.52);
   };
 
-  // Drag handlers
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (mode === 'offline') return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -627,30 +645,21 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     d.originBotX = pos.x;
     d.originBotY = pos.y;
     d.hasMoved = false;
-
-    if (d.recoveryTimerId) {
-      clearTimeout(d.recoveryTimerId);
-      d.recoveryTimerId = null;
-    }
+    if (d.recoveryTimerId) { clearTimeout(d.recoveryTimerId); d.recoveryTimerId = null; }
   }, [mode, pos]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d.isDragging) return;
-
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
-
     if (!d.hasMoved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
       d.hasMoved = true;
       if (shrinkOnDrag && mode !== 'shrinked') {
         preShrinkMode.current = mode;
-        if (onModeChange) {
-          onModeChange('shrinked');
-        }
+        if (onModeChange) onModeChange('shrinked');
       }
     }
-
     if (d.hasMoved) {
       const sw = window.innerWidth, sh = window.innerHeight;
       const newX = Math.max(0, Math.min(sw - 68,  d.originBotX + dx));
@@ -664,32 +673,22 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     if (!d.isDragging) return;
     d.isDragging = false;
     d.lastDragTime = Date.now();
-
     if (d.hasMoved && shrinkOnDrag) {
-      // Snap to nearest edge
       const sw = window.innerWidth, sh = window.innerHeight;
       const cx = pos.x + 32, cy = pos.y + 38;
       const snapX = cx < sw / 2 ? 12 : sw - 80;
       const snapY = cy < sh / 2 ? 12 : sh - 92;
-      // Animate snap
       triggerWhoosh(pos, { x: snapX, y: snapY, corner: 'bottom-right' });
-
-      // Schedule recovery after configured time
       d.recoveryTimerId = setTimeout(() => {
-        if (onModeChange) {
-          onModeChange(preShrinkMode.current);
-        }
+        if (onModeChange) onModeChange(preShrinkMode.current);
         d.recoveryTimerId = null;
       }, recoveryMs);
     }
   }, [pos, shrinkOnDrag, recoveryMs, onModeChange]);
 
-  // Instant-expand on hover/click in shrinked mode
   const onPointerEnterShrinked = useCallback(() => {
     if (mode !== 'shrinked') return;
-    if (onModeChange) {
-      onModeChange(preShrinkMode.current);
-    }
+    if (onModeChange) onModeChange(preShrinkMode.current);
     if (dragRef.current.recoveryTimerId) {
       clearTimeout(dragRef.current.recoveryTimerId);
       dragRef.current.recoveryTimerId = null;
@@ -698,17 +697,16 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
 
   useEffect(() => {
     if (mode === 'sleeping' || mode === 'offline' || mode === 'idle' || mode === 'bored') return;
-    if (isBusy)          setExpr('eating');
-    else if (isShocked)  setExpr('shocked');
+    if (isBusy)              setExpr('eating');
+    else if (isShocked)      setExpr('shocked');
     else if (isThinkingHard) setExpr('thinking_hard');
-    else if (isListening) setExpr('listening');
-    else if (isActive)   setExpr('happy');
-    else                 setExpr('neutral');
+    else if (isListening)    setExpr('listening');
+    else if (isActive)       setExpr('happy');
+    else                     setExpr('neutral');
   }, [mode, isActive, isBusy, isListening, isShocked, isThinkingHard]);
 
   useEffect(() => {
     if (!message) { setShowMsg(false); return; }
-    // Show bubble immediately, no delay for initial message
     setShowMsg(true);
   }, [message]);
   
@@ -717,6 +715,7 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     const t = setTimeout(() => setShowMsg(false), 5800);
     return () => clearTimeout(t);
   }, [showMsg]);
+
   useEffect(() => {
     if (!highlightTarget) { setHlBox(null); return; }
     setHlBox(highlightTarget.getBoundingClientRect());
@@ -724,143 +723,97 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     return () => clearTimeout(t);
   }, [highlightTarget]);
 
-
   useEffect(() => {
     if (!showMsg || !bubbleRef.current || !botRef.current) {
       setBubblePos(null);
       return;
     }
 
-  const bubble = bubbleRef.current;
-  const bot = botRef.current;
-  
-  // Get accurate element dimensions using getBoundingClientRect
-  const bubbleRect = bubble.getBoundingClientRect();
-  const botRect = bot.getBoundingClientRect();
-  
-  const bubbleW = bubbleRect.width || 280;
-  const bubbleH = bubbleRect.height || 80;
-  const botW = botRect.width || 64;
-  const botH = botRect.height || 76;
-  
-  // Viewport dimensions
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  
-  // Scroll offsets (in case page is scrolled)
-  const scrollX = window.pageXOffset;
-  const scrollY = window.pageYOffset;
-  
-  // Bot position in viewport coordinates
-  const botLeft = botRect.left;
-  const botTop = botRect.top;
-  const botRight = botRect.right;
-  const botBottom = botRect.bottom;
-  const botCenterX = botLeft + botW / 2;
-  const botCenterY = botTop + botH / 2;
-  
-  // Modern positioning with clean viewport gaps
-  const VIEWPORT_MARGIN = 16; // Minimum distance from screen edges
-  const BUBBLE_GAP = 12; // Gap between bot and bubble
-  
-  // Calculate available space with modern viewport constraints
-  const spaceTop = botTop - VIEWPORT_MARGIN;
-  const spaceBottom = vh - botBottom - VIEWPORT_MARGIN;
-  const spaceLeft = botLeft - VIEWPORT_MARGIN;
-  const spaceRight = vw - botRight - VIEWPORT_MARGIN;
-  
-  // Determine bot's quadrant to avoid placing bubble in same direction
-  const isInTopHalf = botCenterY < vh / 2;
-  const isInLeftHalf = botCenterX < vw / 2;
-  
-  
-  // Determine preferred placement based on available space and bot position
-  const placements: BubblePlacement[] = [];
-  
-  // If bot is in bottom-right corner, strongly prefer left or top
-  if (!isInTopHalf && !isInLeftHalf) {
-    placements.push('left', 'top');
-  } else if (isInTopHalf && !isInLeftHalf) {
-    placements.push('left', 'bottom');
-  } else if (!isInTopHalf && isInLeftHalf) {
-    placements.push('right', 'top');
-  } else {
-    placements.push('right', 'bottom');
-  }
-  
-  // Add the other placements as fallbacks
-  placements.push('top', 'bottom', 'left', 'right');
-  
-  // Remove duplicates while preserving order
-  const uniquePlacements = [...new Set(placements)];
-  
-  const fits: Record<BubblePlacement, boolean> = {
-    top: spaceTop >= bubbleH + BUBBLE_GAP,
-    bottom: spaceBottom >= bubbleH + BUBBLE_GAP,
-    left: spaceLeft >= bubbleW + BUBBLE_GAP,
-    right: spaceRight >= bubbleW + BUBBLE_GAP,
-  };
-  
-  // Select placement that fits and goes away from bot's corner, or fallback
-  let placement: BubblePlacement = uniquePlacements.find(p => fits[p]) || 
-    uniquePlacements[0];
-  
-  // Calculate final position
-  let left = 0;
-  let top = 0;
-  let transform = '';
-  
-  switch (placement) {
-    case 'top': {
-      // Modern positioning above with viewport constraints
-      left = Math.max(VIEWPORT_MARGIN + bubbleW/2, 
-                Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
-      top = Math.max(VIEWPORT_MARGIN, botTop - BUBBLE_GAP);
-      transform = 'translate(-50%, -100%)';
-      break;
+    const bubble = bubbleRef.current;
+    const bot = botRef.current;
+    const bubbleRect = bubble.getBoundingClientRect();
+    const botRect = bot.getBoundingClientRect();
+    const bubbleW = bubbleRect.width || 280;
+    const bubbleH = bubbleRect.height || 80;
+    const botW = botRect.width || 64;
+    const botH = botRect.height || 76;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const scrollX = window.pageXOffset;
+    const scrollY = window.pageYOffset;
+    const botLeft = botRect.left;
+    const botTop = botRect.top;
+    const botRight = botRect.right;
+    const botBottom = botRect.bottom;
+    const botCenterX = botLeft + botW / 2;
+    const botCenterY = botTop + botH / 2;
+    const VIEWPORT_MARGIN = 16;
+    const BUBBLE_GAP = 12;
+    const spaceTop = botTop - VIEWPORT_MARGIN;
+    const spaceBottom = vh - botBottom - VIEWPORT_MARGIN;
+    const spaceLeft = botLeft - VIEWPORT_MARGIN;
+    const spaceRight = vw - botRight - VIEWPORT_MARGIN;
+    const isInTopHalf = botCenterY < vh / 2;
+    const isInLeftHalf = botCenterX < vw / 2;
+    const placements: BubblePlacement[] = [];
+    if (!isInTopHalf && !isInLeftHalf)      placements.push('left', 'top');
+    else if (isInTopHalf && !isInLeftHalf)  placements.push('left', 'bottom');
+    else if (!isInTopHalf && isInLeftHalf)  placements.push('right', 'top');
+    else                                    placements.push('right', 'bottom');
+    placements.push('top', 'bottom', 'left', 'right');
+    const uniquePlacements = [...new Set(placements)];
+    const fits: Record<BubblePlacement, boolean> = {
+      top:    spaceTop    >= bubbleH + BUBBLE_GAP,
+      bottom: spaceBottom >= bubbleH + BUBBLE_GAP,
+      left:   spaceLeft   >= bubbleW + BUBBLE_GAP,
+      right:  spaceRight  >= bubbleW + BUBBLE_GAP,
+    };
+    let placement: BubblePlacement = uniquePlacements.find(p => fits[p]) || uniquePlacements[0];
+    let left = 0, top = 0, transform = '';
+    switch (placement) {
+      case 'top':
+        left = Math.max(VIEWPORT_MARGIN + bubbleW/2, Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
+        top  = Math.max(VIEWPORT_MARGIN, botTop - BUBBLE_GAP);
+        transform = 'translate(-50%, -100%)';
+        break;
+      case 'bottom':
+        left = Math.max(VIEWPORT_MARGIN + bubbleW/2, Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
+        top  = Math.min(vh - VIEWPORT_MARGIN - bubbleH, botBottom + BUBBLE_GAP);
+        transform = 'translate(-50%, 0)';
+        break;
+      case 'left':
+        left = Math.max(VIEWPORT_MARGIN, botLeft - bubbleW - BUBBLE_GAP);
+        top  = Math.max(VIEWPORT_MARGIN + bubbleH/2, Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
+        transform = 'translate(0, -50%)';
+        break;
+      case 'right':
+        left = Math.min(vw - VIEWPORT_MARGIN - bubbleW, botRight + BUBBLE_GAP);
+        top  = Math.max(VIEWPORT_MARGIN + bubbleH/2, Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
+        transform = 'translate(0, -50%)';
+        break;
     }
-    case 'bottom': {
-      // Modern positioning below with viewport constraints
-      left = Math.max(VIEWPORT_MARGIN + bubbleW/2, 
-                Math.min(vw - VIEWPORT_MARGIN - bubbleW/2, botCenterX));
-      top = Math.min(vh - VIEWPORT_MARGIN - bubbleH, botBottom + BUBBLE_GAP);
-      transform = 'translate(-50%, 0)';
-      break;
-    }
-    case 'left': {
-      // Modern positioning left with viewport constraints
-      left = Math.max(VIEWPORT_MARGIN, botLeft - bubbleW - BUBBLE_GAP);
-      top = Math.max(VIEWPORT_MARGIN + bubbleH/2, 
-               Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
-      transform = 'translate(0, -50%)';
-      break;
-    }
-    case 'right': {
-      // Modern positioning right with viewport constraints
-      left = Math.min(vw - VIEWPORT_MARGIN - bubbleW, botRight + BUBBLE_GAP);
-      top = Math.max(VIEWPORT_MARGIN + bubbleH/2, 
-               Math.min(vh - VIEWPORT_MARGIN - bubbleH/2, botCenterY));
-      transform = 'translate(0, -50%)';
-      break;
-    }
-  }
-  
-  // Convert viewport coordinates to page coordinates
-  const pageLeft = left + scrollX;
-  const pageTop = top + scrollY;
-  
-  
-  setBubblePos({ 
-    placement,
-    left: pageLeft,
-    top: pageTop,
-    transform
-  });
-}, [showMsg, pos.x, pos.y]);
+    setBubblePos({ placement, left: left + scrollX, top: top + scrollY, transform });
+  }, [showMsg, pos.x, pos.y]);
 
   const handleClick = () => {
     if (mode === 'sleeping' || mode === 'offline') return;
+    setShowInputInterface(true);
     onInteraction?.();
+  };
+
+  const handleInputClose = () => {
+    setShowInputInterface(false);
+    setListeningState('idle');
+  };
+
+  const handleInputSubmit = (input: string, isVoice: boolean) => {
+    if (isVoice) {
+      setListeningState('starting');
+      setTimeout(() => setListeningState('listening'), 500);
+      setTimeout(() => setListeningState('processing'), 3000);
+      setTimeout(() => setListeningState('idle'), 4500);
+    }
+    onInputSubmit?.(input, isVoice);
   };
 
   const modeClass = {
@@ -881,6 +834,13 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
 
   return (
     <>
+      <SuyaInputInterface
+        isActive={showInputInterface}
+        onClose={handleInputClose}
+        onSubmit={handleInputSubmit}
+        isListening={listeningState === 'listening'}
+        listeningState={listeningState}
+      />
       
       <div className={`suya-overlay ${isActive ? 'active' : ''}`} onClick={handleClick}>
         {hlBox && (
@@ -899,11 +859,11 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
             ref={bubbleRef}
             className="suya-bubble"
             style={{
-              position: 'absolute',
-              left: bubblePos ? `${bubblePos.left}px` : `${pos.x + 32}px`,
-              top: bubblePos ? `${bubblePos.top}px` : `${pos.y - 10}px`,
-              transform: bubblePos?.transform ?? 'translate(-50%, -100%)',
-              visibility: 'visible', // Always visible for debugging
+              position:   'absolute',
+              left:       bubblePos ? `${bubblePos.left}px` : `${pos.x + 32}px`,
+              top:        bubblePos ? `${bubblePos.top}px`  : `${pos.y - 10}px`,
+              transform:  bubblePos?.transform ?? 'translate(-50%, -100%)',
+              visibility: 'visible',
             }}
           >
             <div className="bubble-top-accent"/>
@@ -919,9 +879,9 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
         data-suya-bot="true"
         className={`suya-bot ${stateClass}`}
         style={{ 
-          left: `${pos.x}px`, 
-          top: `${pos.y}px`,
-          cursor: dragRef.current.isDragging ? 'grabbing' : 'grab'
+          left:   `${pos.x}px`, 
+          top:    `${pos.y}px`,
+          cursor: dragRef.current.isDragging ? 'grabbing' : 'grab',
         }}
         onClick={handleClick}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleClick()}

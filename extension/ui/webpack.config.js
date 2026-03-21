@@ -57,7 +57,8 @@ module.exports = (env, argv) => {
         template: '../popup/popup.html',
         filename: '../popup/popup.html',
         chunks: ['popup'],
-        publicPath: './'
+        publicPath: './',
+        minify: false
       }),
       new HtmlWebpackPlugin({
         template: './src/offscreen/offscreen.html',

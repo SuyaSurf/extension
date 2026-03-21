@@ -93,12 +93,7 @@
 .hand-cover-l { animation: handCoverL .38s cubic-bezier(.34,1.56,.64,1) .00s both; }
 .hand-cover-r { animation: handCoverR .38s cubic-bezier(.34,1.56,.64,1) .10s both; }
 
-/* ── Eating: meat chunks travel toward mouth then vanish, one at a time ──
-   Each chunk animates from its resting position on the stick toward
-   the mouth (translateX/Y toward right cheek) then disappears.
-   Three chunks, each delayed 0.8s apart in a 2.4s loop.
-   transform-origin is the chunk's own center so scaling shrinks it in-place.
-── */
+/* ── Eating ── */
 @keyframes eatChunk {
   0%,18%  { opacity: 1; transform: translate(0px, 0px) scale(1); }
   55%     { opacity: .6; transform: translate(-9px, -5px) scale(.55); }
@@ -108,7 +103,6 @@
 .eat-c1 { animation: eatChunk 2.4s ease-in-out infinite 0.8s; }
 .eat-c2 { animation: eatChunk 2.4s ease-in-out infinite 1.6s; }
 
-/* Skewer advances a little with each bite */
 @keyframes skNudge { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-3px); } }
 .sk-nudge { animation: skNudge .8s ease-in-out infinite; }
 
@@ -119,78 +113,268 @@
 .ring-3 { animation-delay: 1.5s; opacity: .3; }
 @keyframes listenPing { 0% { transform: scale(1); opacity: inherit; } 100% { transform: scale(2.8); opacity: 0; } }
 
-/* ── Blink animations for eyes ── */
-.suya-bot .eye-left,
-.suya-bot .eye-right {
-  animation: blinkAwake 4.2s ease-in-out infinite;
-}
-.suya-bot.mode-idle .eye-left,
-.suya-bot.mode-idle .eye-right {
-  animation: blinkIdle 5.8s ease-in-out infinite;
-}
-.suya-bot.mode-sleeping .eye-left,
-.suya-bot.mode-sleeping .eye-right {
-  animation: blinkSleep 8.4s ease-in-out infinite;
-}
-.suya-bot.mode-offline .eye-left,
-.suya-bot.mode-offline .eye-right {
-  animation: blinkOffline 12s ease-in-out infinite;
-}
-.suya-bot.mode-bored .eye-left,
-.suya-bot.mode-bored .eye-right {
-  animation: blinkBored 7.2s ease-in-out infinite;
-}
-.suya-bot.busy .eye-left,
-.suya-bot.busy .eye-right {
-  animation: blinkBusy 3.6s ease-in-out infinite;
-}
-.suya-bot.listening .eye-left,
-.suya-bot.listening .eye-right {
-  animation: blinkListen 4.8s ease-in-out infinite;
-}
-.suya-bot.shocked .eye-left,
-.suya-bot.shocked .eye-right {
-  animation: none;
-}
-.suya-bot.thinking-hard .eye-left,
-.suya-bot.thinking-hard .eye-right {
-  animation: blinkThink 3.2s ease-in-out infinite;
+
+/* =====================================================
+   EYE ANIMATIONS — Eyelid blink + pupil saccades
+   ===================================================== */
+
+/* ── Eyelid base ────────────────────────────────────
+   The lid is a skin-colored ellipse matching the sclera shape,
+   sitting on top of the iris/pupil in SVG z-order.
+   transform-box: fill-box makes transform-origin relative to the
+   element itself (not the SVG viewport), so "top center" = top edge
+   of the ellipse → lid sweeps DOWN from the top of the eye socket,
+   exactly like a real upper eyelid closing.
+   scaleY(0) = invisible (collapsed to a line at the top edge)
+   scaleY(1) = fully closed (covers entire eye)
+──────────────────────────────────────────────────── */
+.eye-lid-l,
+.eye-lid-r {
+  transform-box:    fill-box;
+  transform-origin: top center;
+  transform:        scaleY(0);          /* start open */
+  pointer-events:   none;
 }
 
-/* Blink keyframes - subtle and natural */
-@keyframes blinkAwake {
-  0%, 90%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.12); }
+/* Pupil/iris group — translate-only drift, never scaling */
+.pupil-l,
+.pupil-r {
+  transform-box:    fill-box;
+  transform-origin: center center;
 }
-@keyframes blinkIdle {
-  0%, 85%, 100% { transform: scaleY(1); }
-  89% { transform: scaleY(0.15); }
+
+/* ── Blink keyframe ─────────────────────────────────
+   Asymmetric: fast close (~8% of period), tiny hold (~2%),
+   slightly slower open (~5%), then long open pause.
+   The easing on the animation-timing-function is overridden per
+   phase using the multi-step approach — two keyframes very close
+   together create the "snap" of a real blink.
+──────────────────────────────────────────────────── */
+@keyframes blinkLid {
+  0%, 91%   { transform: scaleY(0); }   /* eyes open */
+  93%       { transform: scaleY(1); }   /* close — fast */
+  94.8%     { transform: scaleY(1); }   /* hold closed */
+  98%, 100% { transform: scaleY(0); }   /* open — slightly slower */
 }
-@keyframes blinkSleep {
-  0%, 70%, 100% { transform: scaleY(1); }
-  75% { transform: scaleY(0.08); }
-  85% { transform: scaleY(0.12); }
+
+/* Wider-eye variant for listening (taller sclera ry=11 not 10) */
+@keyframes blinkLidWide {
+  0%, 90%   { transform: scaleY(0); }
+  92%       { transform: scaleY(1); }
+  93.8%     { transform: scaleY(1); }
+  97%, 100% { transform: scaleY(0); }
 }
-@keyframes blinkOffline {
-  0%, 92%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.05); }
+
+/* ── Default blink: awake/neutral (every ~4.2s) ── */
+.suya-bot .eye-lid-l {
+  animation: blinkLid 4.2s ease-in-out infinite;
+  animation-delay: 0.05s;              /* tiny offset so lids don't sync perfectly */
 }
-@keyframes blinkBored {
-  0%, 88%, 100% { transform: scaleY(1); }
-  92% { transform: scaleY(0.18); }
+.suya-bot .eye-lid-r {
+  animation: blinkLid 4.2s ease-in-out infinite;
+  animation-delay: 0s;
 }
-@keyframes blinkBusy {
-  0%, 93%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.1); }
+
+/* ── Idle (drowsy): slow blink every ~7s ── */
+.suya-bot.mode-idle .eye-lid-l,
+.suya-bot.mode-idle .eye-lid-r {
+  animation-name:     blinkLid;
+  animation-duration: 7s;
 }
-@keyframes blinkListen {
-  0%, 87%, 100% { transform: scaleY(1); }
-  91% { transform: scaleY(0.14); }
+
+/* ── Bored: even slower, languid blink every ~8.5s ── */
+.suya-bot.mode-bored .eye-lid-l,
+.suya-bot.mode-bored .eye-lid-r {
+  animation-name:     blinkLid;
+  animation-duration: 8.5s;
 }
-@keyframes blinkThink {
-  0%, 91%, 100% { transform: scaleY(1); }
-  94% { transform: scaleY(0.08); }
+
+/* ── Busy/eating: faster blink every ~3.2s ── */
+.suya-bot.busy .eye-lid-l,
+.suya-bot.busy .eye-lid-r {
+  animation-name:     blinkLid;
+  animation-duration: 3.2s;
 }
+
+/* ── Listening: wide eyes, rare blink every ~5.5s ── */
+.suya-bot.listening .eye-lid-l,
+.suya-bot.listening .eye-lid-r {
+  animation-name:     blinkLidWide;    /* bigger eye geometry */
+  animation-duration: 5.5s;
+}
+
+/* ── Thinking-hard: focused, rare blink every ~6.5s ── */
+.suya-bot.thinking-hard .eye-lid-l,
+.suya-bot.thinking-hard .eye-lid-r {
+  animation-name:     blinkLid;
+  animation-duration: 6.5s;
+}
+
+/* ── Modes where eyes are not open — no blink animation ── */
+.suya-bot.mode-sleeping .eye-lid-l,
+.suya-bot.mode-sleeping .eye-lid-r,
+.suya-bot.mode-offline  .eye-lid-l,
+.suya-bot.mode-offline  .eye-lid-r,
+.suya-bot.shocked       .eye-lid-l,
+.suya-bot.shocked       .eye-lid-r {
+  animation: none;
+  transform: scaleY(0);               /* keep open (no lid overlay needed) */
+}
+
+
+/* ── Pupil saccade keyframes ────────────────────────
+   Real eyes make rapid "saccade" jumps between fixation points.
+   Simulated here with pairs of keyframes < 0.5% apart so the
+   transition is imperceptibly fast (snap), then a long fixation hold.
+   Left and right use different patterns + durations so they
+   never sync up — matching the slightly independent nature of real eyes.
+   Max translate ±1.4px — iris radius 5.8 must stay inside sclera rx 8.5.
+──────────────────────────────────────────────────── */
+@keyframes pupilSaccadeL {
+  0%     { transform: translate(0px,    0px);    }
+  10%    { transform: translate(0px,    0px);    }  /* fixation: center */
+  10.4%  { transform: translate(-1.4px, 0.3px);  }  /* saccade → left */
+  24%    { transform: translate(-1.4px, 0.3px);  }  /* fixation: left */
+  24.4%  { transform: translate(0.7px,  -1.1px); }  /* saccade → upper-right */
+  37%    { transform: translate(0.7px,  -1.1px); }  /* fixation: up-right */
+  37.4%  { transform: translate(1.3px,  0.4px);  }  /* saccade → right */
+  54%    { transform: translate(1.3px,  0.4px);  }  /* fixation: right */
+  54.4%  { transform: translate(-0.5px, 1.1px);  }  /* saccade → lower-left */
+  70%    { transform: translate(-0.5px, 1.1px);  }  /* fixation: lower */
+  70.4%  { transform: translate(0.2px,  -0.3px); }  /* saccade → near-center */
+  87%    { transform: translate(0.2px,  -0.3px); }  /* fixation */
+  87.4%  { transform: translate(0px,    0px);    }  /* return center */
+  100%   { transform: translate(0px,    0px);    }
+}
+
+@keyframes pupilSaccadeR {
+  0%     { transform: translate(0px,    0px);    }
+  7%     { transform: translate(0px,    0px);    }
+  7.4%   { transform: translate(1.2px,  -0.5px); }
+  21%    { transform: translate(1.2px,  -0.5px); }
+  21.4%  { transform: translate(-1.1px, 0.5px);  }
+  36%    { transform: translate(-1.1px, 0.5px);  }
+  36.4%  { transform: translate(0.4px,  1.2px);  }
+  52%    { transform: translate(0.4px,  1.2px);  }
+  52.4%  { transform: translate(-1.3px, -0.3px); }
+  68%    { transform: translate(-1.3px, -0.3px); }
+  68.4%  { transform: translate(0.3px,  0.3px);  }
+  84%    { transform: translate(0.3px,  0.3px);  }
+  84.4%  { transform: translate(0px,    0px);    }
+  100%   { transform: translate(0px,    0px);    }
+}
+
+/* Idle: heavy, barely-moving pupils — slow lazy drift downward */
+@keyframes pupilIdleDrift {
+  0%, 100% { transform: translate(0px,   0px);   }
+  28%      { transform: translate(-0.9px, 0.4px); }
+  55%      { transform: translate(0.7px,  0.2px); }
+  80%      { transform: translate(-0.3px, 0.6px); }
+}
+
+/* Bored: pupils already offset hard-left in props; just micro-jitter around that base */
+@keyframes pupilBoredJitter {
+  0%, 100% { transform: translate(0px,  0px);   }
+  35%      { transform: translate(0.4px, 0.3px); }
+  65%      { transform: translate(-0.2px, -0.2px); }
+}
+
+/* Listening: wide attentive eyes, small alert tracking movements */
+@keyframes pupilListenL {
+  0%, 100% { transform: translate(0px,   0px);   }
+  18%      { transform: translate(-0.7px, 0.3px); }
+  18.4%    { transform: translate(-0.7px, 0.3px); }
+  42%      { transform: translate(0.5px,  -0.4px); }
+  42.4%    { transform: translate(0.5px,  -0.4px); }
+  68%      { transform: translate(-0.3px, 0.4px); }
+  92%      { transform: translate(0px,    0px);   }
+}
+@keyframes pupilListenR {
+  0%, 100% { transform: translate(0px,   0px);   }
+  12%      { transform: translate(0.6px,  -0.3px); }
+  12.4%    { transform: translate(0.6px,  -0.3px); }
+  38%      { transform: translate(-0.8px, 0.4px); }
+  38.4%    { transform: translate(-0.8px, 0.4px); }
+  72%      { transform: translate(0.4px,  0.3px); }
+  92%      { transform: translate(0px,    0px);   }
+}
+
+/* Busy (eating bliss eyes are closed so animation is moot,
+   but we define it anyway for the state class) */
+@keyframes pupilBusyMicro {
+  0%, 100% { transform: translate(0px,  0px);   }
+  25%      { transform: translate(0.6px, -0.4px); }
+  50%      { transform: translate(-0.5px, 0.3px); }
+  75%      { transform: translate(0.4px,  0.5px); }
+}
+
+/* ── Default pupil animation: awake saccades ── */
+.suya-bot .pupil-l {
+  animation: pupilSaccadeL 9s linear infinite;
+}
+.suya-bot .pupil-r {
+  animation: pupilSaccadeR 9.8s linear infinite;
+}
+
+/* Mode/state overrides */
+.suya-bot.mode-idle .pupil-l,
+.suya-bot.mode-idle .pupil-r {
+  animation-name:     pupilIdleDrift;
+  animation-duration: 8.5s;
+  animation-timing-function: ease-in-out;
+}
+
+.suya-bot.mode-bored .pupil-l {
+  animation-name:     pupilBoredJitter;
+  animation-duration: 10.5s;
+  animation-timing-function: ease-in-out;
+}
+.suya-bot.mode-bored .pupil-r {
+  animation-name:     pupilBoredJitter;
+  animation-duration: 11.2s;
+  animation-timing-function: ease-in-out;
+}
+
+.suya-bot.listening .pupil-l {
+  animation-name:     pupilListenL;
+  animation-duration: 5.8s;
+  animation-timing-function: linear;
+}
+.suya-bot.listening .pupil-r {
+  animation-name:     pupilListenR;
+  animation-duration: 6.4s;
+  animation-timing-function: linear;
+}
+
+/* Thinking-hard: locked intense stare — no drift */
+.suya-bot.thinking-hard .pupil-l,
+.suya-bot.thinking-hard .pupil-r {
+  animation: none;
+  transform: translate(0px, 0px);
+}
+
+.suya-bot.busy .pupil-l {
+  animation-name:     pupilBusyMicro;
+  animation-duration: 2.6s;
+  animation-timing-function: ease-in-out;
+}
+.suya-bot.busy .pupil-r {
+  animation-name:     pupilBusyMicro;
+  animation-duration: 2.2s;
+  animation-timing-function: ease-in-out;
+  animation-delay: 0.4s;
+}
+
+/* No pupil animation for closed/covered eyes */
+.suya-bot.mode-sleeping .pupil-l,
+.suya-bot.mode-sleeping .pupil-r,
+.suya-bot.mode-offline  .pupil-l,
+.suya-bot.mode-offline  .pupil-r,
+.suya-bot.shocked       .pupil-l,
+.suya-bot.shocked       .pupil-r {
+  animation: none;
+}
+
 
 /* ── Whoosh locomotion ── */
 .suya-bot.whoosh-out { animation: whooshOut var(--whoosh-dur) cubic-bezier(.4,0,.8,.2) forwards !important; }
@@ -246,9 +430,12 @@
 @media (prefers-reduced-motion: reduce) {
   .suya-bot,.listen-ring,.vignette-frame,.suya-bubble,
   .suya-speed-trail,.suya-speed-line,.z-particle,
-  .hand-cover-l,.hand-cover-r,.eat-c0,.eat-c1,.eat-c2,.sk-nudge {
+  .hand-cover-l,.hand-cover-r,.eat-c0,.eat-c1,.eat-c2,.sk-nudge,
+  .eye-lid-l,.eye-lid-r,.pupil-l,.pupil-r {
     animation: none !important; transition: none !important;
   }
+  /* Keep lids hidden when animations are off */
+  .eye-lid-l, .eye-lid-r { transform: scaleY(0) !important; }
 }
 
 /* ── Shrinked mode ─────────────────────────────────────────── */

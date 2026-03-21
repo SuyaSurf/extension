@@ -1,5 +1,17 @@
 /* ─── field-matcher.js ─── */
-window.FieldMatcher = (() => {
+(function(global) {
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+  
+  if (!isBrowser) {
+    // Export empty object for Node.js testing
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = { matchAll: () => [], THRESHOLD: 0.35 };
+    }
+    return;
+  }
+
+  const FieldMatcher = (() => {
 
   // Weight config for scoring signals
   const WEIGHTS = {
@@ -262,3 +274,12 @@ window.FieldMatcher = (() => {
 
   return { matchAll, scoreMatch, flattenProfile, findBestField, THRESHOLD };
 })();
+
+// Export for both environments
+if (isBrowser) {
+  window.FieldMatcher = FieldMatcher;
+} else if (typeof module !== 'undefined' && module.exports) {
+  module.exports = FieldMatcher;
+}
+
+})(typeof window !== 'undefined' ? window : global);
