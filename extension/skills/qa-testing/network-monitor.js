@@ -306,7 +306,10 @@ window.NetworkMonitor = (() => {
 // BACKGROUND SERVICE WORKER — chrome.debugger bridge
 // Import / use this separately in the background script.
 // ══════════════════════════════════════════════════════════════════════════════
-class NetworkDebugger {
+
+// Prevent duplicate class declaration
+if (typeof window.NetworkDebugger === 'undefined') {
+  class NetworkDebugger {
   constructor() {
     this._tabs   = new Map();   // tabId → { requests, responses, ws }
     this._bound  = false;
@@ -417,7 +420,11 @@ class NetworkDebugger {
   }
 }
 
+// Make NetworkDebugger available globally
+window.NetworkDebugger = NetworkDebugger;
+
 // Singleton for background use
 if (typeof chrome !== 'undefined' && chrome.debugger) {
   window._NetworkDebugger = window._NetworkDebugger || new NetworkDebugger();
+}
 }

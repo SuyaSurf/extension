@@ -1092,7 +1092,16 @@
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
+      // Check if script is already loaded
+      const scriptId = src.split('/').pop().replace(/\.[^/.]+$/, '');
+      if (document.getElementById(`script-${scriptId}`)) {
+        console.log(`AI Bot Extension: Script ${src} already loaded, skipping`);
+        resolve();
+        return;
+      }
+      
       const script = document.createElement('script');
+      script.id = `script-${scriptId}`;
       script.src = src;
       script.onload = resolve;
       script.onerror = reject;
