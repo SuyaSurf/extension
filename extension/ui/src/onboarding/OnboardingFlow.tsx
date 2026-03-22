@@ -151,7 +151,11 @@ interface PersistedSettings {
   apiKeys: { openai: string; anthropic: string; deepseek: string; groq: string };
 }
 
-const OnboardingFlow: React.FC = () => {
+interface OnboardingFlowProps {
+  onComplete?: () => void;
+}
+
+const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
   const [botState, setBotState] = useState({
     expression: 'happy' as SuyaExpression,
     mode: 'awake' as SuyaMode,
@@ -266,90 +270,14 @@ const OnboardingFlow: React.FC = () => {
     };
   };
 
-  const completeSetup = () => {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ 
-          hasSeenOnboarding: true,
-          onboardingCompleted: Date.now(),
-          userProfile: onboardingState.userProfile
-        });
-      } else {
-        // Fallback for development/testing
-        localStorage.setItem('hasSeenOnboarding', 'true');
-        localStorage.setItem('onboardingCompleted', Date.now().toString());
-        localStorage.setItem('userProfile', JSON.stringify(onboardingState.userProfile));
-      }
-    } catch (error) {
-      console.error('Failed to save onboarding data:', error);
-    }
-  };
-
   const steps = [
-    {
-      id: 'welcome',
-      title: 'Welcome to Suya Bot',
-      subtitle: 'Let me introduce my moods and how to read my expressions before we start.',
-      component: WelcomeStep,
-      props: { guideStep, nextStep, completeStep, updateUserProfile: () => {}, onboardingState, userProfile: {} }
-    },
-    {
-      id: 'history-analysis',
-      title: 'Discover Your Interests',
-      subtitle: 'I can scan your recent browsing to learn what fuels your growth—totally optional.',
-      component: HistoryAnalysisStep,
-      props: { 
-        guideStep, 
-        nextStep, 
-        completeStep, 
-        updateUserProfile,
-        onboardingState 
-      }
-    },
-    {
-      id: 'smart-questioning',
-      title: 'Personalize Your Growth',
-      subtitle: 'Answer a few soulful prompts so I can tailor every insight to your goals.',
-      component: SmartQuestioningStep,
-      props: { 
-        guideStep, 
-        nextStep, 
-        completeStep, 
-        updateUserProfile,
-        userProfile: onboardingState.userProfile 
-      }
-    },
-    {
-      id: 'api-keys',
-      title: 'Secure AI API Keys',
-      subtitle: 'Connect your ChatGPT, Anthropic, DeepSeek, and Groq keys so I can orchestrate them safely.',
-      component: ApiKeySetupStep,
-      props: {
-        guideStep,
-        nextStep,
-        completeStep,
-        apiKeyStatus: onboardingState.apiKeys,
-        updateApiKeyStatus
-      }
-    },
-    {
-      id: 'news-setup',
-      title: 'Set Up Your News Sources',
-      subtitle: 'Here are the sources I curated—pick the ones that feel most nourishing.',
-      component: PersonalizedNewsSetup,
-    },
-    {
-      id: 'growth-demo',
-      title: 'See Your Personalized News',
-      subtitle: 'Let me show you how your growth briefing looks when I assemble it.',
-      component: GrowthNewsDemo
-    },
-    {
-      id: 'quick-actions',
-      title: 'Your Growth Dashboard',
-      subtitle: 'Choose the rituals and automations you want me to keep running for you.',
-      component: GrowthQuickActions
-    }
+    { id: 'welcome',          title: 'Welcome to Suya Bot',       subtitle: 'Let me introduce my moods and how to read my expressions before we start.' },
+    { id: 'history-analysis', title: 'Discover Your Interests',    subtitle: 'I can scan your recent browsing to learn what fuels your growth—totally optional.' },
+    { id: 'smart-questioning',title: 'Personalize Your Growth',    subtitle: 'Answer a few soulful prompts so I can tailor every insight to your goals.' },
+    { id: 'api-keys',         title: 'Secure AI API Keys',         subtitle: 'Connect your ChatGPT, Anthropic, DeepSeek, and Groq keys so I can orchestrate them safely.' },
+    { id: 'news-setup',       title: 'Set Up Your News Sources',   subtitle: 'Here are the sources I curated—pick the ones that feel most nourishing.' },
+    { id: 'growth-demo',      title: 'See Your Personalized News', subtitle: 'Let me show you how your growth briefing looks when I assemble it.' },
+    { id: 'quick-actions',    title: 'Your Growth Dashboard',      subtitle: 'Choose the rituals and automations you want me to keep running for you.' },
   ];
 
   const currentStepData = steps[onboardingState.currentStep];
@@ -397,6 +325,7 @@ const OnboardingFlow: React.FC = () => {
       });
 
       guideStep('happy', 'All set! I will keep curating growth fuel for you.');
+      setTimeout(() => onComplete?.(), 1200);
     } catch (error) {
       console.error('Failed to persist onboarding status', error);
       guideStep('shocked', 'I had trouble saving your setup. Want to retry?');
