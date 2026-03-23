@@ -23,9 +23,9 @@ interface ProviderConfig {
 }
 
 const PROVIDERS: ProviderConfig[] = [
-  { id: 'openai',    label: 'OpenAI',    color: '#74AA9C', docsUrl: 'https://platform.openai.com/account/api-keys', notes: 'GPT-4.1, GPT-4o, Assistants & Batch jobs.', scopes: ['Responses API','Assistants API','Batch jobs'], placeholder: 'sk-live-…' },
-  { id: 'anthropic', label: 'Anthropic', color: '#D97757', docsUrl: 'https://console.anthropic.com/settings/keys', notes: 'Claude — thinking mode, tool use, analysis.', scopes: ['Messages API','Tool use','Thinking mode'], placeholder: 'sk-ant-…' },
-  { id: 'deepseek',  label: 'DeepSeek',  color: '#4FC3F7', docsUrl: 'https://platform.deepseek.com/api-keys', notes: 'Fast reasoning and low-latency drafting.', scopes: ['Reasoner API','Completion API'], placeholder: 'sk-ds-…' },
+  { id: 'openai',    label: 'OpenAI',    color: '#74AA9C', docsUrl: 'https://platform.openai.com/account/api-keys', notes: 'GPT-4.1, GPT-4o, Assistants & Batch jobs.', scopes: ['Responses API','Assistants API','Batch jobs'], placeholder: 'sk-proj-…' },
+  { id: 'anthropic', label: 'Anthropic', color: '#D97757', docsUrl: 'https://console.anthropic.com/settings/keys', notes: 'Claude — thinking mode, tool use, analysis.', scopes: ['Messages API','Tool use','Thinking mode'], placeholder: 'sk-ant-api03-…' },
+  { id: 'deepseek',  label: 'DeepSeek',  color: '#4FC3F7', docsUrl: 'https://platform.deepseek.com/api-keys', notes: 'Fast reasoning and low-latency drafting.', scopes: ['Reasoner API','Completion API'], placeholder: 'sk-…' },
   { id: 'groq',      label: 'Groq',      color: '#CE93D8', docsUrl: 'https://console.groq.com/keys', notes: 'Ultra-fast Mixtral + Llama via LPU hardware.', scopes: ['ChatCompletions','Embeddings'], placeholder: 'gsk_…' },
 ];
 
@@ -39,21 +39,38 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
   const [saving, setSaving]           = useState<ProviderId | null>(null);
   const [testing, setTesting]         = useState<ProviderId | null>(null);
   const [error, setError]             = useState<string | null>(null);
+  const [collapsed, setCollapsed]     = useState<Record<string, boolean>>({});
 
   const connectedCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.connected).length;
   const hasOneConnected = connectedCount >= 1;
 
   useEffect(() => {
-    const hasOneValidProvider = PROVIDERS.some(p => 
-      apiKeyStatus[p.id]?.connected && apiKeyStatus[p.id]?.hasTested
+    const hasOneConnectedProvider = PROVIDERS.some(p => 
+      apiKeyStatus[p.id]?.connected
     );
     
-    if (hasOneValidProvider) { 
+    if (hasOneConnectedProvider) { 
       completeStep('api-keys'); 
-      const providerCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.connected && apiKeyStatus[p.id]?.hasTested).length;
-      guideStep('happy', `AI engine${providerCount > 1 ? 's' : ''} ready! You can add more providers anytime.`);
+      const providerCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.connected).length;
+      const testedCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.hasTested).length;
+      guideStep('happy', `${providerCount} key${providerCount > 1 ? 's' : ''} connected! ${testedCount > 0 ? `${testedCount} tested.` : 'Test your keys to verify they work.'}`);
     }
   }, [apiKeyStatus]);
+
+  // Auto-collapse cards that have been tested
+  useEffect(() => {
+    const newCollapsed: Record<string, boolean> = {};
+    PROVIDERS.forEach(p => {
+      if (apiKeyStatus[p.id]?.hasTested) {
+        newCollapsed[p.id] = true;
+      }
+    });
+    setCollapsed(prev => ({ ...prev, ...newCollapsed }));
+  }, [apiKeyStatus]);
+
+  const toggleCollapse = (providerId: ProviderId) => {
+    setCollapsed(prev => ({ ...prev, [providerId]: !prev[providerId] }));
+  };
 
   const persistKey = useCallback(async (id: ProviderId, raw: string) => {
     if (typeof chrome !== 'undefined') {
@@ -109,12 +126,12 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
     finally { setSaving(null); }
   };
 
-  // API key format validation patterns
+  // API key format validation patterns (updated 2026)
   const KEY_FORMATS = {
-    openai: /^sk-[a-zA-Z0-9]{48}$/,
+    openai: /^sk-proj-[a-zA-Z0-9_-]{48,156}$/,
     anthropic: /^sk-ant-api03-[a-zA-Z0-9_-]{95}$/,
     deepseek: /^sk-[a-zA-Z0-9]{48}$/,
-    groq: /^gsk_[a-zA-Z0-9]{51}$/
+    groq: /^gsk_[a-zA-Z0-9]{48}$/
   };
 
   const validateKeyFormat = (providerId: ProviderId, key: string): boolean => {
@@ -278,72 +295,85 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
           const isConn    = !!status?.connected;
           const isSaving  = saving === p.id;
           const isTesting = testing === p.id;
+          const isTested  = !!status?.hasTested;
+          const isCollapsed = collapsed[p.id] && isTested;
+          
           return (
-            <div key={p.id} className={`ak-card ob-card ${isConn ? 'ak-card--connected' : ''}`} style={{ '--pk-color': p.color } as React.CSSProperties}>
+            <div key={p.id} className={`ak-card ob-card ${isConn ? 'ak-card--connected' : ''} ${isCollapsed ? 'ak-card--collapsed' : ''}`} style={{ '--pk-color': p.color } as React.CSSProperties}>
 
               {/* Card header */}
-              <div className="ak-card__header">
+              <div className="ak-card__header" onClick={() => isTested && toggleCollapse(p.id)} style={{ cursor: isTested ? 'pointer' : 'default' }}>
                 <div className="ak-provider-dot" style={{ background: p.color }}/>
                 <div className="ak-card__meta">
                   <h3 className="ak-card__name">{p.label}</h3>
-                  <p className="ak-card__notes">{p.notes}</p>
+                  <p className="ak-card__notes">{isCollapsed ? '✓ Tested and working' : p.notes}</p>
                 </div>
                 <div className="ak-card__headerRight">
                   {isConn
-                    ? <span className="ob-tag ob-tag--green">Connected</span>
+                    ? <span className={`ob-tag ${isTested ? 'ob-tag--green' : 'ob-tag--orange'}`}>{isTested ? 'Tested' : 'Connected'}</span>
                     : <a href={p.docsUrl} target="_blank" rel="noreferrer" className="ak-docs-link">Get key ↗</a>
                   }
+                  {isTested && (
+                    <span className="ak-collapse-toggle">
+                      {isCollapsed ? '▶' : '▼'}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Scopes */}
-              <div className="ak-scopes">
-                {p.scopes.map(s => <span key={s} className="ob-tag ob-tag--blue">{s}</span>)}
-              </div>
+              {/* Collapsible content */}
+              {!isCollapsed && (
+                <>
+                  {/* Scopes */}
+                  <div className="ak-scopes">
+                    {p.scopes.map(s => <span key={s} className="ob-tag ob-tag--blue">{s}</span>)}
+                  </div>
 
-              {/* Input */}
-              {!isConn && (
-                <div className="ak-input-wrap">
-                  <input
-                    className="ob-input ak-key-input"
-                    type={visible[p.id] ? 'text' : 'password'}
-                    placeholder={p.placeholder}
-                    value={formValues[p.id] ?? ''}
-                    onChange={e => setFormValues(prev => ({ ...prev, [p.id]: e.target.value }))}
-                    disabled={isSaving}
-                  />
-                  <button className="ak-toggle-vis" onClick={() => setVisible(prev => ({ ...prev, [p.id]: !prev[p.id] }))}>
-                    {visible[p.id] ? '🙈' : '👁'}
-                  </button>
-                </div>
-              )}
+                  {/* Input */}
+                  {!isConn && (
+                    <div className="ak-input-wrap">
+                      <input
+                        className="ob-input ak-key-input"
+                        type={visible[p.id] ? 'text' : 'password'}
+                        placeholder={p.placeholder}
+                        value={formValues[p.id] ?? ''}
+                        onChange={e => setFormValues(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        disabled={isSaving}
+                      />
+                      <button className="ak-toggle-vis" onClick={() => setVisible(prev => ({ ...prev, [p.id]: !prev[p.id] }))}>
+                        {visible[p.id] ? '🙈' : '👁'}
+                      </button>
+                    </div>
+                  )}
 
-              {/* Actions */}
-              <div className="ak-actions">
-                {!isConn ? (
-                  <button
-                    className="ob-btn ob-btn--primary"
-                    onClick={() => handleConnect(p)}
-                    disabled={isSaving || !formValues[p.id]}
-                    style={{ flex: 1 }}
-                  >
-                    {isSaving ? 'Securing…' : 'Secure Key'}
-                  </button>
-                ) : (
-                  <>
-                    <button className="ob-btn ob-btn--secondary" onClick={() => handleTest(p)} disabled={isTesting} style={{ flex: 1 }}>
-                      {isTesting ? 'Testing…' : status?.hasTested ? 'Retest' : 'Test Key'}
-                    </button>
-                    <button className="ob-btn ob-btn--ghost" onClick={() => handleRemove(p)} disabled={isSaving}>
-                      Disconnect
-                    </button>
-                  </>
-                )}
-              </div>
+                  {/* Actions */}
+                  <div className="ak-actions">
+                    {!isConn ? (
+                      <button
+                        className="ob-btn ob-btn--primary"
+                        onClick={() => handleConnect(p)}
+                        disabled={isSaving || !formValues[p.id]}
+                        style={{ flex: 1 }}
+                      >
+                        {isSaving ? 'Securing…' : 'Secure Key'}
+                      </button>
+                    ) : (
+                      <>
+                        <button className="ob-btn ob-btn--secondary" onClick={() => handleTest(p)} disabled={isTesting} style={{ flex: 1 }}>
+                          {isTesting ? 'Testing…' : status?.hasTested ? 'Retest' : 'Test Key'}
+                        </button>
+                        <button className="ob-btn ob-btn--ghost" onClick={() => handleRemove(p)} disabled={isSaving}>
+                          Disconnect
+                        </button>
+                      </>
+                    )}
+                  </div>
 
-              {/* Last updated */}
-              {status?.lastUpdated && (
-                <p className="ak-updated">Updated {new Date(status.lastUpdated).toLocaleString()}</p>
+                  {/* Last updated */}
+                  {status?.lastUpdated && (
+                    <p className="ak-updated">Updated {new Date(status.lastUpdated).toLocaleString()}</p>
+                  )}
+                </>
               )}
             </div>
           );
@@ -440,6 +470,34 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
         .ak-footnote__list li::before {
           content: '›'; position: absolute; left: 0;
           color: var(--accent-text);
+        }
+
+        .ak-card--collapsed {
+          transition: all 0.3s ease;
+        }
+
+        .ak-card--collapsed .ak-card__header {
+          padding: 12px 16px;
+        }
+
+        .ak-card--collapsed .ak-card__meta {
+          flex: 1;
+        }
+
+        .ak-collapse-toggle {
+          margin-left: 8px;
+          font-size: 12px;
+          opacity: 0.6;
+          transition: opacity 0.15s;
+        }
+
+        .ak-card__header:hover .ak-collapse-toggle {
+          opacity: 1;
+        }
+
+        .ak-card--collapsed:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
       `}</style>
     </div>
