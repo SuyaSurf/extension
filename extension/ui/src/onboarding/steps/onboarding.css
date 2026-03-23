@@ -3,7 +3,7 @@
    Matches SuyaBot's dark-warm aesthetic exactly
    ═══════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
 
 /* ── Tokens ────────────────────────────────────── */
 :root {
@@ -40,7 +40,7 @@
   --shadow-card: 0 4px 24px rgba(0,0,0,.4);
   --shadow-glow: 0 0 40px rgba(255,107,53,.12);
 
-  --font-display: 'Syne', sans-serif;
+  --font-display: 'Inter', sans-serif;
   --font-body:    'DM Sans', sans-serif;
 
   --ease-spring: cubic-bezier(.34,1.56,.64,1);
