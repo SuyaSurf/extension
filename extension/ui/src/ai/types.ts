@@ -139,6 +139,54 @@ export interface FlowTransition {
 
 export type FlowListener = (event: FlowEvent, state: FlowState) => void;
 
+// ── Short-Term Memory ─────────────────────────────────────
+export type {
+  MemoryEntry,
+  MemoryRetrievalResult,
+  STMConfig,
+  STMState,
+} from './memory/ShortTermMemory';
+
+// ── RNN ───────────────────────────────────────────────────
+export type {
+  RNNCacheEntry,
+  RNNGradients,
+  RNNLayerConfig,
+} from './core/RNNLayer';
+
+// ── LSTM ──────────────────────────────────────────────────
+export type {
+  LSTMCacheEntry,
+  LSTMState,
+  LSTMGradients,
+  LSTMLayerConfig,
+} from './core/LSTMLayer';
+
+/** A training sample for sequence models: sequence of inputs + single target. */
+export interface SequenceSample {
+  /** Each element is a flat feature vector (length = inputSize). */
+  inputs: number[][];
+  /** Target output vector (e.g. one-hot category). */
+  target: number[];
+}
+
+export interface SequenceTrainingConfig {
+  epochs: number;
+  learningRate: number;
+  bpttTruncate?: number;
+  clipNorm?: number;
+  lossThreshold?: number;
+  onEpochEnd?: (epoch: number, loss: number) => void;
+}
+
+export interface SequenceTrainingResult {
+  epochs: number;
+  finalLoss: number;
+  lossHistory: number[];
+  converged: boolean;
+  duration: number;
+}
+
 // ── SuyaSurf AI Tasks ─────────────────────────────────────
 export interface BrowsingPattern {
   url: string;

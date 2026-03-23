@@ -9,10 +9,14 @@
 // ============================================================
 
 import { NeuralNetwork } from './core/Network';
+import { DenseLayer } from './core/Layer';
 import { BayesianEngine } from './bayesian/BayesianEngine';
 import { Trainer } from './training/Trainer';
 import { DataFlowMachine } from './state/DataFlowMachine';
 import { Matrix } from './core/Matrix';
+import { ShortTermMemory } from './memory/ShortTermMemory';
+import type { STMState } from './memory/ShortTermMemory';
+import { LSTMLayer } from './core/LSTMLayer';
 
 import type {
   BrowsingPattern,
@@ -24,6 +28,9 @@ import type {
   TrainingSample,
   TrainingConfig,
   TrainingResult,
+  SequenceSample,
+  SequenceTrainingConfig,
+  SequenceTrainingResult,
 } from './types';
 
 // ── Content category taxonomy ────────────────────────────
@@ -122,6 +129,28 @@ export class SuyaAI {
   // In-memory browsing history store
   private browsingHistory: BrowsingPattern[] = [];
 
+  // ── New: Short-Term Memory + Sequence Model ───────────────
+
+  /**
+   * Short-Term Memory — ring buffer (capacity 100) with 7-dim URL
+   * feature embeddings and 5-minute temporal half-life.
+   * Stores the last 100 page visits; retrieval uses attention scoring.
+   */
+  readonly stm: ShortTermMemory<BrowsingPattern>;
+
+  /**
+   * Sequence LSTM — models browsing sequences.
+   * Input: 7-dim URL feature vector per page.
+   * Hidden: 32 units.  Output: fed into sequenceOutput layer.
+   */
+  private sequenceLSTM: LSTMLayer;
+
+  /**
+   * Output layer on top of LSTM hidden state.
+   * Maps 32-dim hidden → 8 content categories (softmax).
+   */
+  private sequenceOutput: DenseLayer;
+
   constructor() {
     // Content classifier: 14 features → 8 hidden → 8 categories
     this.contentClassifier = NeuralNetwork.build(
@@ -155,6 +184,23 @@ export class SuyaAI {
     );
     this.bayesian = new BayesianEngine(uniformPrior);
 
+    // Short-term memory: 100-entry ring buffer, 7-dim URL embeddings, 5-min decay
+    this.stm = new ShortTermMemory<BrowsingPattern>({
+      capacity: 100,
+      embedDim: 7,
+      halfLife: 5 * 60_000,
+      decayLambda: 1.0,
+    });
+
+    // Sequence model: LSTM(7→32) feeds a Dense output layer (32→8 softmax)
+    this.sequenceLSTM  = new LSTMLayer({ inputSize: 7, hiddenSize: 32 });
+    this.sequenceOutput = new DenseLayer({
+      inputSize: 32,
+      outputSize: CONTENT_CATEGORIES.length,
+      activation: 'softmax',
+      learningRate: 0.01,
+    });
+
     this._registerBayesianLikelihoods();
   }
 
@@ -173,6 +219,10 @@ export class SuyaAI {
     } else {
       this.browsingHistory.push({ ...pattern });
     }
+    // Also store in STM — URL features serve as the attention key embedding.
+    // This enables recallContext() to find semantically similar past pages.
+    const embedding = extractUrlFeatures(pattern.url);
+    this.stm.store(pattern.url, pattern, embedding);
   }
 
   /**
@@ -346,6 +396,182 @@ export class SuyaAI {
     };
   }
 
+  // ── Short-Term Memory Recall ─────────────────────────────
+
+  /**
+   * Retrieve past browsing entries relevant to the given URL.
+   *
+   * Uses attention-weighted scoring:
+   *   score_i = cos_sim(query_embedding, entry_embedding) × temporal_decay_i
+   *   attention = softmax(scores / √7)
+   *
+   * @param url   Current page URL — its feature vector is the query.
+   * @param topK  Maximum results. Default: 5.
+   * @returns     Array of matching entries, sorted by attention weight.
+   */
+  recallContext(url: string, topK = 5) {
+    const queryEmbedding = extractUrlFeatures(url);
+    return this.stm.retrieve(queryEmbedding, topK);
+  }
+
+  // ── Sequence Analysis (LSTM) ──────────────────────────────
+
+  /**
+   * Predict the most likely content category given a URL sequence.
+   *
+   * Algorithm:
+   *   1. Convert each URL → 7-dim feature vector
+   *   2. Run LSTM forward pass over the sequence
+   *   3. Pass the final hidden state through the softmax output layer
+   *   4. Return the highest-probability category + distribution
+   *
+   * @param urls    Ordered list of URLs (chronological, newest last)
+   * @returns       { topCategory, confidence, distribution }
+   */
+  analyseSequence(urls: string[]): {
+    topCategory: string;
+    confidence: number;
+    distribution: ProbabilityDistribution;
+  } {
+    if (urls.length === 0) {
+      return { topCategory: 'other', confidence: 0, distribution: {} };
+    }
+
+    // Build sequence of (7×1) column-vector matrices
+    const xSeq = urls.map((url) =>
+      Matrix.fromArray(extractUrlFeatures(url))
+    );
+
+    // LSTM forward pass → final hidden state h_T ∈ ℝ^32
+    const { finalState } = this.sequenceLSTM.forward(xSeq);
+
+    // Output layer: softmax over 8 categories
+    const probs = this.sequenceOutput.forward(finalState.h);
+    const probVec = probs.toColumnVector();
+
+    let topIdx = 0;
+    for (let i = 1; i < probVec.length; i++) {
+      if (probVec[i] > probVec[topIdx]) topIdx = i;
+    }
+
+    const distribution: ProbabilityDistribution = {};
+    CONTENT_CATEGORIES.forEach((cat, i) => { distribution[cat] = probVec[i]; });
+
+    return {
+      topCategory: CONTENT_CATEGORIES[topIdx] ?? 'other',
+      confidence: probVec[topIdx],
+      distribution,
+    };
+  }
+
+  /**
+   * Train the sequence model (LSTM + output layer) on labelled sequences.
+   *
+   * Each SequenceSample provides:
+   *   • inputs: T URL feature vectors (will be extracted from URLs internally,
+   *             or pass pre-extracted float arrays directly)
+   *   • target: one-hot vector over CONTENT_CATEGORIES (length 8)
+   *
+   * Training algorithm (per sequence, per epoch):
+   *   1. LSTM forward pass on sequence → final hidden state h_T
+   *   2. Output layer forward pass → ŷ = softmax(W_out·h_T + b)
+   *   3. Cross-entropy loss: L = -Σ y·log(ŷ)
+   *   4. Combined softmax+CE gradient: dL/dz = ŷ - y  (pre-activation)
+   *   5. Output weight gradients: dW_out = dz·h_T^T, db = dz
+   *   6. LSTM input gradient: dh_T = W_out^T · dz
+   *   7. BPTT: unroll LSTM with dhSeq = [0,…,0, dh_T]
+   *   8. Apply gradients with clipping to LSTM and output layer.
+   *
+   * @param sequences  Array of {inputs (T×7 float arrays), target (8-dim)} samples
+   * @param config     Training hyper-parameters
+   */
+  trainSequenceModel(
+    sequences: SequenceSample[],
+    config?: Partial<SequenceTrainingConfig>
+  ): SequenceTrainingResult {
+    const epochs       = config?.epochs        ?? 50;
+    const lr           = config?.learningRate   ?? 0.01;
+    const bpttTruncate = config?.bpttTruncate   ?? 20;
+    const clipNorm     = config?.clipNorm        ?? 5.0;
+    const lossThreshold = config?.lossThreshold ?? 0.05;
+    const onEpochEnd   = config?.onEpochEnd;
+
+    // Apply bpttTruncate to the LSTM
+    (this.sequenceLSTM as { bpttTruncate: number }).bpttTruncate = bpttTruncate;
+
+    const lossHistory: number[] = [];
+    let finalLoss = Infinity;
+    const startTime = Date.now();
+    let converged = false;
+
+    const eps = 1e-15;
+
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      let epochLoss = 0;
+
+      for (const sample of sequences) {
+        const T = sample.inputs.length;
+        if (T === 0) continue;
+
+        // Build sequence of column-vector matrices
+        const xSeq = sample.inputs.map((arr) => Matrix.fromArray(arr));
+
+        // ── Forward ────────────────────────────────────────
+        const { hiddenStates, finalState } = this.sequenceLSTM.forward(xSeq);
+        const hLast = finalState.h;
+
+        const probs = this.sequenceOutput.forward(hLast);
+        const probArr = probs.toColumnVector();
+        const targetArr = sample.target;
+
+        // Cross-entropy loss: L = -Σ y·log(ŷ)
+        const loss = -targetArr.reduce(
+          (sum, y, i) => sum + y * Math.log(Math.max(probArr[i], eps)),
+          0
+        );
+        epochLoss += loss;
+
+        // ── Backward ───────────────────────────────────────
+        // Cross-entropy gradient w.r.t. softmax output: dL/da_i = -y_i / ŷ_i
+        // DenseLayer.backward() applies the softmax Jacobian, yielding dL/dz_j = ŷ_j - y_j.
+        const dA = Matrix.fromArray(
+          targetArr.map((y, i) => -y / Math.max(probArr[i], eps))
+        );
+        const outGrads = this.sequenceOutput.backward(dA);
+        this.sequenceOutput.applyGradients(outGrads, lr);
+
+        // dInput = gradient w.r.t. LSTM final hidden state
+        const dhLast = new Matrix(outGrads.dInput);
+
+        // Build dhSeq: only the final timestep receives gradient from the output layer
+        const dhSeq = hiddenStates.map((_, t) =>
+          t === T - 1 ? dhLast : Matrix.zeros(this.sequenceLSTM.hiddenSize, 1)
+        );
+
+        // LSTM BPTT
+        const lstmGrads = this.sequenceLSTM.backward(dhSeq);
+        this.sequenceLSTM.applyGradients(lstmGrads, lr, clipNorm);
+      }
+
+      finalLoss = epochLoss / Math.max(sequences.length, 1);
+      lossHistory.push(finalLoss);
+      onEpochEnd?.(epoch, finalLoss);
+
+      if (finalLoss <= lossThreshold) {
+        converged = true;
+        break;
+      }
+    }
+
+    return {
+      epochs: lossHistory.length,
+      finalLoss,
+      lossHistory,
+      converged,
+      duration: Date.now() - startTime,
+    };
+  }
+
   // ── Bayesian Decision ────────────────────────────────────
 
   /**
@@ -429,10 +655,13 @@ export class SuyaAI {
 
   serialize(): object {
     return {
-      version: '1.0',
+      version: '1.1',
       contentClassifier: this.contentClassifier.serialize(),
       intentPredictor: this.intentPredictor.serialize(),
       browsingHistory: this.browsingHistory,
+      stm: this.stm.serialize(),
+      sequenceLSTM: this.sequenceLSTM.getWeights(),
+      sequenceOutput: this.sequenceOutput.getWeights(),
     };
   }
 
@@ -442,11 +671,23 @@ export class SuyaAI {
       contentClassifier: object;
       intentPredictor: object;
       browsingHistory: BrowsingPattern[];
+      stm?: object;
+      sequenceLSTM?: ReturnType<LSTMLayer['getWeights']>;
+      sequenceOutput?: ReturnType<DenseLayer['getWeights']>;
     };
     const ai = new SuyaAI();
     ai.contentClassifier = NeuralNetwork.deserialize(d.contentClassifier);
     ai.intentPredictor = NeuralNetwork.deserialize(d.intentPredictor);
     ai.browsingHistory = d.browsingHistory ?? [];
+    if (d.stm) {
+      (ai as { stm: ShortTermMemory<BrowsingPattern> }).stm =
+        ShortTermMemory.deserialize(d.stm as STMState<BrowsingPattern>);
+    }
+    if (d.sequenceLSTM) ai.sequenceLSTM.setWeights(d.sequenceLSTM);
+    if (d.sequenceOutput) {
+      const sw = d.sequenceOutput as { W: number[][], b: number[][] };
+      ai.sequenceOutput.setWeights(sw.W, sw.b);
+    }
     return ai;
   }
 

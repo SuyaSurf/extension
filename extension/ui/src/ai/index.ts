@@ -30,6 +30,16 @@ export {
   GATE_TRUTH_TABLES,
 } from './core/LogicGates';
 
+// Memory
+export { ShortTermMemory } from './memory/ShortTermMemory';
+export type { MemoryEntry, MemoryRetrievalResult, STMConfig, STMState } from './memory/ShortTermMemory';
+
+// Recurrent layers
+export { RNNLayer } from './core/RNNLayer';
+export type { RNNCacheEntry, RNNGradients, RNNLayerConfig } from './core/RNNLayer';
+export { LSTMLayer } from './core/LSTMLayer';
+export type { LSTMCacheEntry, LSTMState, LSTMGradients, LSTMLayerConfig } from './core/LSTMLayer';
+
 // Bayesian engine
 export { BayesianEngine } from './bayesian/BayesianEngine';
 
@@ -76,6 +86,10 @@ export type {
   FlowEvent,
   FlowTransition,
   FlowListener,
+  // Sequence training
+  SequenceSample,
+  SequenceTrainingConfig,
+  SequenceTrainingResult,
   // SuyaSurf AI tasks
   BrowsingPattern,
   ContentClassification,
