@@ -268,11 +268,72 @@ class MailSkillsSkill {
   }
 
   async composeVenmailEmail(data) {
-    // Placeholder for Venmail integration
-    return { 
-      success: false, 
-      error: 'Venmail composition not yet implemented' 
-    };
+    try {
+      // Load Venmail composer if not already loaded
+      if (!window.VenmailComposer) {
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('skills/mail-skills/venmail-composer.js');
+        document.head.appendChild(script);
+        
+        // Wait for script to load
+        await new Promise(resolve => {
+          script.onload = resolve;
+        });
+      }
+      
+      const composer = new window.VenmailComposer();
+      
+      if (!composer.isVenmailPage()) {
+        return { 
+          success: false, 
+          error: 'Please navigate to Venmail (m.venmail.io) before composing emails' 
+        };
+      }
+      
+      return await composer.composeEmail(data);
+    } catch (error) {
+      console.error('Failed to compose Venmail email:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to compose Venmail email' 
+      };
+    }
+  }
+
+  async composeGmailEmail(data) {
+    try {
+      // Load Gmail composer if not already loaded
+      if (!window.GmailComposer) {
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('skills/mail-skills/gmail-composer.js');
+        document.head.appendChild(script);
+        
+        // Wait for script to load
+        await new Promise(resolve => {
+          script.onload = resolve;
+        });
+      }
+      
+      const composer = new window.GmailComposer();
+      
+      if (!composer.isGmailPage()) {
+        return { 
+          success: false, 
+          error: 'Please navigate to Gmail (mail.google.com) before composing emails' 
+        };
+      }
+      
+      // Wait for Gmail to fully load
+      await composer.waitForGmailLoad();
+      
+      return await composer.composeEmail(data);
+    } catch (error) {
+      console.error('Failed to compose Gmail email:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to compose Gmail email' 
+      };
+    }
   }
 
   async replyToEmail(data) {

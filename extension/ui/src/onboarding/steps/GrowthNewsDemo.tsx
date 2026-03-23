@@ -94,10 +94,7 @@ const GrowthNewsDemo: React.FC<GrowthNewsDemoProps> = ({ guideStep, nextStep, co
   useEffect(() => {
     const run = async () => {
       guideStep('eating', 'Finding articles that will help you grow…');
-      for (let i = 0; i < SCAN_MSGS.length; i++) {
-        await new Promise(r => setTimeout(r, 520));
-        setScanStep(i);
-      }
+      
       const built = buildArticles();
       setArticles(built);
       setLoading(false);

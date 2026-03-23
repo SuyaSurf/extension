@@ -44,6 +44,10 @@ class ChatSkillsSkill {
         return await this.searchChats(data.query);
       case 'getPlatform':
         return await this.getCurrentPlatform();
+      case 'processVoice':
+        return await this.processVoiceInput(data);
+      case 'processBotInput':
+        return await this.processBotInput(data);
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -156,6 +160,216 @@ class ChatSkillsSkill {
   async searchChats(query) {
     console.log('Searching chats:', query);
     return { results: [], query };
+  }
+
+  async processVoiceInput(data) {
+    console.log('Processing voice input:', data);
+    
+    try {
+      // Simulate voice processing - in real implementation, this would
+      // connect to actual speech recognition service
+      const { input } = data;
+      
+      // For now, treat the input as already transcribed text
+      // In production, this would use Web Speech API or server-side STT
+      const transcript = input || (await this.mockSpeechRecognition());
+      
+      return {
+        success: true,
+        transcript: transcript,
+        confidence: 0.95,
+        processingTime: Date.now()
+      };
+      
+    } catch (error) {
+      console.error('Voice processing failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Voice processing failed'
+      };
+    }
+  }
+
+  async processBotInput(data) {
+    console.log('Processing bot input:', data);
+    
+    try {
+      const { message, isVoice } = data;
+      
+      // Generate intelligent response based on message content
+      const response = await this.generateBotResponse(message);
+      
+      // Send response through CharacterMessenger
+      if (window.CharacterMessenger) {
+        await window.CharacterMessenger.sendMessage(response.text, {
+          mode: response.mode || 'awake',
+          isThinkingHard: response.isThinkingHard || false
+        });
+        
+        // If there are actions, send them as well
+        if (response.actions && response.actions.length > 0) {
+          setTimeout(() => {
+            window.CharacterMessenger.sendMessage(response.text, {
+              mode: 'awake',
+              actions: response.actions
+            });
+          }, 1000);
+        }
+      }
+      
+      return {
+        success: true,
+        response: response,
+        processedAt: Date.now()
+      };
+      
+    } catch (error) {
+      console.error('Bot input processing failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Bot processing failed'
+      };
+    }
+  }
+
+  async mockSpeechRecognition() {
+    // Mock speech recognition for demo purposes
+    // In production, this would be replaced with real STT
+    const mockPhrases = [
+      "Hello there",
+      "How are you",
+      "Can you help me",
+      "Thank you",
+      "Goodbye"
+    ];
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(mockPhrases[Math.floor(Math.random() * mockPhrases.length)]);
+      }, 1500);
+    });
+  }
+
+  async generateBotResponse(message) {
+    const text = message.toLowerCase().trim();
+    
+    // Analyze message and generate appropriate response
+    if (text.includes('hello') || text.includes('hi') || text.includes('hey')) {
+      return {
+        text: "Hello! I'm here to help you with your tasks. What can I assist you with today?",
+        mode: 'awake',
+        isThinkingHard: false,
+        actions: [
+          {
+            label: 'Help me write',
+            type: 'followup',
+            prompt: 'Help me write an email'
+          },
+          {
+            label: 'Summarize page',
+            type: 'action',
+            handler: () => this.summarizeCurrentPage()
+          }
+        ]
+      };
+    }
+    
+    if (text.includes('help') || text.includes('assist')) {
+      return {
+        text: "I can help you with various tasks! I can assist with writing, summarizing content, analyzing pages, and more. What specific task would you like help with?",
+        mode: 'thinking',
+        isThinkingHard: true,
+        actions: [
+          {
+            label: 'Write email',
+            type: 'followup',
+            prompt: 'Help me write a professional email'
+          },
+          {
+            label: 'Summarize content',
+            type: 'followup',
+            prompt: 'Summarize this page'
+          },
+          {
+            label: 'Analyze forms',
+            type: 'action',
+            handler: () => this.analyzePageForms()
+          }
+        ]
+      };
+    }
+    
+    if (text.includes('thank')) {
+      return {
+        text: "You're very welcome! I'm always here to help whenever you need assistance.",
+        mode: 'awake',
+        isThinkingHard: false
+      };
+    }
+    
+    if (text.includes('bye') || text.includes('goodbye')) {
+      return {
+        text: "Goodbye! Feel free to call on me anytime you need help. Have a great day!",
+        mode: 'idle',
+        isThinkingHard: false
+      };
+    }
+    
+    // Default intelligent response
+    return {
+      text: "I understand. Let me help you with that. I can assist with writing, analysis, or answer questions about the current page.",
+      mode: 'thinking',
+      isThinkingHard: true,
+      actions: [
+        {
+          label: 'Tell me more',
+          type: 'followup',
+          prompt: 'Can you provide more details?'
+        },
+        {
+          label: 'Analyze page',
+          type: 'action',
+          handler: () => this.analyzeCurrentPage()
+        }
+      ]
+    };
+  }
+
+  async analyzeCurrentPage() {
+    // Basic page analysis
+    const title = document.title;
+    const url = window.location.href;
+    const forms = document.querySelectorAll('form').length;
+    
+    return {
+      title,
+      url,
+      formCount: forms,
+      hasForms: forms > 0
+    };
+  }
+
+  async summarizeCurrentPage() {
+    // Extract main content for summarization
+    const mainContent = document.querySelector('main, article, .content, #content')?.textContent || 
+                       document.body.textContent?.substring(0, 1000);
+    
+    return {
+      summary: mainContent?.substring(0, 200) + '...' || 'No content found',
+      wordCount: mainContent?.split(/\s+/).length || 0
+    };
+  }
+
+  analyzePageForms() {
+    const forms = document.querySelectorAll('form');
+    const formInfo = Array.from(forms).map((form, index) => ({
+      index,
+      action: form.action,
+      method: form.method,
+      fieldCount: form.querySelectorAll('input, textarea, select').length
+    }));
+    
+    return formInfo;
   }
 
   async summarizeChat(data) {

@@ -168,7 +168,24 @@ const SimplePopup: React.FC = () => {
       }
 
       if (command === 'schedule-review') {
-        setStatusMessage('Review scheduling feature coming soon...');
+        setStatusMessage('Opening review scheduler...');
+        // Open the review scheduling interface
+        try {
+          chrome.tabs.create({ 
+            url: chrome.runtime.getURL('ui/review-scheduler.html'),
+            active: true 
+          }, (tab) => {
+            if (chrome.runtime.lastError) {
+              setStatusMessage(`Error: ${chrome.runtime.lastError.message}`);
+            } else {
+              setStatusMessage('Review scheduler opened!');
+              setTimeout(() => setStatusMessage(''), 2000);
+            }
+          });
+        } catch (error) {
+          console.error('Failed to open review scheduler:', error);
+          setStatusMessage('Failed to open scheduler');
+        }
       }
 
       if (command === 'test-element') {

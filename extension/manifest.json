@@ -97,7 +97,8 @@
         "settings/*",
         "content-script/*",
         "popup/*",
-        "offscreen/*"
+        "offscreen/*",
+        "ui/review-scheduler.html"
       ],
       "matches": ["<all_urls>"]
     }

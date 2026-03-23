@@ -50,11 +50,6 @@ const HistoryAnalysisStep: React.FC<HistoryAnalysisStepProps> = ({
   };
 
   const runAnalysis = async () => {
-    for (let i = 0; i < SCAN_STEPS.length; i++) {
-      await new Promise(r => setTimeout(r, 650));
-      setScanStep(i);
-    }
-
     try {
       const history = await chrome.history.search({ text: '', startTime: Date.now() - 30 * 24 * 60 * 60 * 1000, maxResults: 1000 });
       const interests: Record<string, InterestData[]> = {};

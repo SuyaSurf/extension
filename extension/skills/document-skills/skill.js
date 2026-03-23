@@ -77,8 +77,38 @@ class DocumentSkillsSkill {
   }
 
   async getDocumentContent() {
-    // Mock implementation - would need specific integration
-    return { text: 'Document content would be extracted here' };
+    try {
+      // Check if we're in Google Docs
+      if (window.location.hostname === 'docs.google.com') {
+        // Get Google Docs content
+        const docsContent = document.querySelector('.kix-wordhtmlgenerator');
+        if (docsContent) {
+          return { text: docsContent.innerText || docsContent.textContent };
+        }
+        // Fallback to getting all paragraph elements
+        const paragraphs = document.querySelectorAll('.kix-paragraph');
+        const content = Array.from(paragraphs).map(p => p.textContent).join('\n');
+        return { text: content || 'No content found in Google Docs' };
+      }
+      
+      // Check if we're in a general text editor or document
+      const editableElements = document.querySelectorAll('[contenteditable="true"], textarea, input[type="text"]');
+      if (editableElements.length > 0) {
+        const content = Array.from(editableElements).map(el => el.value || el.textContent).join('\n');
+        return { text: content || 'No editable content found' };
+      }
+      
+      // Fallback to main content area
+      const mainContent = document.querySelector('main, [role="main"], .content, #content');
+      if (mainContent) {
+        return { text: mainContent.innerText || mainContent.textContent };
+      }
+      
+      return { text: 'No document content detected' };
+    } catch (error) {
+      console.error('Failed to extract document content:', error);
+      return { text: 'Error extracting document content' };
+    }
   }
 
   async editDocument(data) {

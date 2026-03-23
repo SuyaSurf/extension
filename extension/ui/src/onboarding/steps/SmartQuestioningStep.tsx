@@ -105,8 +105,6 @@ const SmartQuestioningStep: React.FC<SmartQuestioningStepProps> = ({
     setAnswers(prev => ({ ...prev, [qId]: value }));
     guideStep('eating', 'Got it, processing your answer…');
 
-    await new Promise(r => setTimeout(r, 900));
-
     const q = QUESTIONS.find(q => q.id === qId);
     const opt = q?.options.find(o => o.value === value);
     const update: Partial<UserProfile> = {};
@@ -149,7 +147,6 @@ const SmartQuestioningStep: React.FC<SmartQuestioningStepProps> = ({
     updateUserProfile({ learningStyle: values.join(','), contentTypes });
     guideStep('happy', `I'll find ${values.join(' and ')} content for you!`);
 
-    await new Promise(r => setTimeout(r, 900));
     advance();
   };
 

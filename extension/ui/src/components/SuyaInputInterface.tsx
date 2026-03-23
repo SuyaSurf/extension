@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './SuyaInputInterface.css';
+import { CharacterMessenger } from '../types';
 
 export interface SuyaInputProps {
   isActive: boolean;
@@ -59,44 +60,143 @@ export const SuyaInputInterface: React.FC<SuyaInputProps> = ({
     }
   }, [isActive, isVoiceMode]);
 
-  // Simulate voice wave animation
+  // Listen for bot responses from character-ui
+  useEffect(() => {
+    const handleBotResponse = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { results } = customEvent.detail;
+      
+      if (results && Array.isArray(results)) {
+        setResults(results);
+        setIsProcessing(false);
+        setShowSuggestions(false);
+      }
+    };
+
+    window.addEventListener('suya-bot-response', handleBotResponse);
+    
+    return () => {
+      window.removeEventListener('suya-bot-response', handleBotResponse);
+    };
+  }, []);
+
+  // Real voice wave animation using Web Audio API
   useEffect(() => {
     if (listeningState === 'listening') {
-      const interval = setInterval(() => {
-        setVoiceWaveIntensity(Math.random() * 100);
-      }, 150);
-      return () => clearInterval(interval);
+      let audioContext: AudioContext | null = null;
+      let analyser: AnalyserNode | null = null;
+      let microphone: MediaStreamAudioSourceNode | null = null;
+      let stream: MediaStream | null = null;
+      let animationId: number | null = null;
+      
+      const startAudioCapture = async () => {
+        try {
+          // Request microphone access
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+          
+          // Set up audio context and analyser
+          audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          microphone = audioContext.createMediaStreamSource(stream);
+          
+          microphone.connect(analyser);
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.8;
+          
+          const updateVoiceIntensity = () => {
+            if (analyser && listeningState === 'listening') {
+              const dataArray = new Uint8Array(analyser.frequencyBinCount);
+              analyser.getByteFrequencyData(dataArray);
+              
+              // Calculate average intensity with bass emphasis
+              const bassEnd = Math.floor(dataArray.length * 0.3);
+              const bassAverage = dataArray.slice(0, bassEnd).reduce((a, b) => a + b, 0) / bassEnd;
+              const overallAverage = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+              
+              // Combine bass and overall for more natural visualization
+              const intensity = (bassAverage * 0.7 + overallAverage * 0.3) / 255 * 100;
+              setVoiceWaveIntensity(Math.min(100, Math.max(0, intensity)));
+              
+              animationId = requestAnimationFrame(updateVoiceIntensity);
+            }
+          };
+          
+          updateVoiceIntensity();
+        } catch (error) {
+          console.error('Audio capture failed:', error);
+          setVoiceWaveIntensity(0);
+          // Fall back to subtle animation if audio access fails
+          const fallbackInterval = setInterval(() => {
+            setVoiceWaveIntensity(prev => prev > 0 ? prev * 0.9 : Math.random() * 20);
+          }, 200);
+          
+          // Store interval for cleanup
+          (audioContext as any) = { close: () => clearInterval(fallbackInterval) };
+        }
+      };
+      
+      startAudioCapture();
+      
+      return () => {
+        // Cleanup audio resources
+        if (animationId) cancelAnimationFrame(animationId);
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        if (audioContext && audioContext.close) audioContext.close();
+        if (microphone) microphone.disconnect();
+        if (analyser) analyser.disconnect();
+      };
     } else {
       setVoiceWaveIntensity(0);
     }
   }, [listeningState]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!input.trim() && !isVoiceMode) return;
     
     setIsProcessing(true);
     onSubmit(input, isVoiceMode);
     
-    // Simulate response
-    setTimeout(() => {
+    try {
+      // Use CharacterMessenger to send to bot skills
+      if (window.CharacterMessenger) {
+        await window.CharacterMessenger.sendMessage(input, {
+          mode: 'thinking',
+          isThinkingHard: true
+        });
+      }
+      
+      // Emit event for skill processing
+      window.dispatchEvent(new CustomEvent('suya-bot-input', {
+        detail: { message: input, isVoice: isVoiceMode }
+      }));
+      
+      // Clear input and suggestions immediately
+      setInput('');
+      setShowSuggestions(false);
+      
+    } catch (error) {
+      console.error('Bot processing failed:', error);
+      // Show error result as fallback
       const newResults: Result[] = [
         {
-          id: '1',
+          id: 'error',
           type: 'text',
-          content: isVoiceMode 
-            ? "I heard you say: " + input || "I'm listening... Let me process that."
-            : "I understand: " + input,
+          content: 'Sorry, I had trouble processing that. Please try again.',
           actions: [
-            { label: 'Copy', action: () => {}, variant: 'secondary' },
-            { label: 'Follow up', action: () => {}, variant: 'primary' }
+            { label: 'Retry', action: () => setInput(input), variant: 'primary' }
           ]
         }
       ];
       setResults(newResults);
+    } finally {
       setIsProcessing(false);
-      setInput('');
-      setShowSuggestions(false);
-    }, 1500);
+    }
   }, [input, isVoiceMode, onSubmit]);
 
   const handleVoiceToggle = useCallback(() => {

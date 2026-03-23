@@ -52,6 +52,30 @@ export interface StorageStats {
   total: number
 }
 
+// Character Messenger interface for bot communication
+export interface CharacterMessenger {
+  sendMessage(message: string, options?: CharacterMessengerOptions): Promise<void>
+  reportProgress(operation: string, progress: number, message: string): void
+  reportSuccess(operation: string, details?: string): void
+  reportError(operation: string, error: string): void
+  cleanup(): void
+}
+
+export interface CharacterMessengerOptions {
+  mode?: string
+  isThinkingHard?: boolean
+  isShocked?: boolean
+  isBusy?: boolean
+  duration?: number
+}
+
+// Extend global Window interface
+declare global {
+  interface Window {
+    CharacterMessenger?: CharacterMessenger
+  }
+}
+
 export interface ExtensionSettings {
   voiceEnabled: boolean
   autoStartSkills: string[]

@@ -401,11 +401,71 @@ export class ExportManager {
   }
 
   getHistoryStats() {
-    // Placeholder - would need to be implemented based on ApplicationHistory
-    return {
-      totalRecords: 0,
-      totalProjects: 0,
-      dateRange: null
-    };
+    try {
+      // Get data from application history
+      if (window.ApplicationHistory) {
+        const history = new window.ApplicationHistory();
+        const stats = history.getStats();
+        return stats;
+      }
+      
+      // Fallback: calculate from localStorage
+      const stats = {
+        totalRecords: 0,
+        totalProjects: 0,
+        dateRange: null,
+        lastActivity: null
+      };
+      
+      // Count projects
+      const projects = Object.keys(localStorage).filter(key => key.startsWith('project_'));
+      stats.totalProjects = projects.length;
+      
+      // Count records and find date range
+      let earliestDate = null;
+      let latestDate = null;
+      
+      projects.forEach(projectKey => {
+        try {
+          const project = JSON.parse(localStorage.getItem(projectKey) || '{}');
+          if (project.recordIds) {
+            stats.totalRecords += project.recordIds.length;
+          }
+          
+          if (project.createdAt) {
+            const created = new Date(project.createdAt);
+            if (!earliestDate || created < earliestDate) earliestDate = created;
+            if (!latestDate || created > latestDate) latestDate = created;
+          }
+          
+          if (project.updatedAt) {
+            const updated = new Date(project.updatedAt);
+            if (!latestDate || updated > latestDate) latestDate = updated;
+          }
+        } catch (e) {
+          // Skip invalid projects
+        }
+      });
+      
+      if (earliestDate && latestDate) {
+        stats.dateRange = {
+          start: earliestDate.toISOString(),
+          end: latestDate.toISOString()
+        };
+      }
+      
+      stats.lastActivity = latestDate ? latestDate.toISOString() : null;
+      
+      return stats;
+    } catch (error) {
+      console.error('Failed to get history stats:', error);
+      return {
+        totalRecords: 0,
+        totalProjects: 0,
+        dateRange: null,
+        lastActivity: null,
+        error: error.message
+      };
+    }
   }
 }

@@ -120,10 +120,7 @@ const PersonalizedNewsSetup: React.FC<PersonalizedNewsSetupProps> = ({
   useEffect(() => {
     const run = async () => {
       guideStep('eating', 'Finding the perfect news sources for your growth journey…');
-      for (let i = 0; i < SCAN_MSGS.length; i++) {
-        await new Promise(r => setTimeout(r, 520));
-        setScanStep(i);
-      }
+      
       const built = buildSources();
       const areas = built.reduce<GrowthArea[]>((acc, src) => {
         const ex = acc.find(a => a.domain === src.primaryDomain);

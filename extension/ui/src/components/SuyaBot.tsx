@@ -806,15 +806,71 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
     setListeningState('idle');
   };
 
-  const handleInputSubmit = (input: string, isVoice: boolean) => {
+  const handleInputSubmit = useCallback(async (input: string, isVoice: boolean) => {
     if (isVoice) {
       setListeningState('starting');
-      setTimeout(() => setListeningState('listening'), 500);
-      setTimeout(() => setListeningState('processing'), 3000);
-      setTimeout(() => setListeningState('idle'), 4500);
+      
+      try {
+        // Access chat-skills from skill registry
+        const skillRegistry = (window as any).skillRegistry;
+        const chatSkill = skillRegistry?.getSkill?.('chat-skills');
+        
+        if (chatSkill) {
+          setListeningState('listening');
+          
+          // Process voice input through chat-skills
+          const result = await chatSkill.handleAction('processVoice', { input });
+          
+          setListeningState('processing');
+          
+          // Handle real voice recognition result
+          if (result?.success) {
+            setListeningState('idle');
+            
+            // Trigger bot response with transcribed text
+            if (window.CharacterMessenger) {
+              await window.CharacterMessenger.sendMessage(result.transcript || input, {
+                mode: 'awake'
+              });
+            }
+          } else {
+            setListeningState('error');
+            if (window.CharacterMessenger) {
+              await window.CharacterMessenger.sendMessage('Voice processing failed. Please try again.', {
+                isShocked: true
+              });
+            }
+          }
+        } else {
+          // Fallback if chat-skills not available
+          setListeningState('error');
+          if (window.CharacterMessenger) {
+            await window.CharacterMessenger.sendMessage('Voice skills not available. Please check extension settings.', {
+              isShocked: true
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Voice processing failed:', error);
+        setListeningState('error');
+        if (window.CharacterMessenger) {
+          await window.CharacterMessenger.sendMessage('Voice processing encountered an error. Please try again.', {
+            isShocked: true
+          });
+        }
+      }
+    } else {
+      // Text input - direct to bot
+      if (window.CharacterMessenger && input.trim()) {
+        await window.CharacterMessenger.sendMessage(input, { 
+          mode: 'thinking',
+          isThinkingHard: true 
+        });
+      }
     }
+    
     onInputSubmit?.(input, isVoice);
-  };
+  }, [onInputSubmit]);
 
   const modeClass = {
     idle: 'mode-idle', sleeping: 'mode-sleeping',

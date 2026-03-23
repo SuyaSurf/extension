@@ -77,27 +77,147 @@ async function handleMediaProcessing(data) {
 }
 
 async function transcribeAudio(audioData) {
-  // Mock transcription - replace with actual API call
-  return {
-    success: true,
-    transcription: "This is a mock transcription of the audio content."
-  };
+  try {
+    // Get API keys from storage
+    const result = await chrome.storage.local.get(['secureApiKey:openai', 'secureApiKey:anthropic', 'secureApiKey:groq']);
+    const apiKey = result['secureApiKey:openai'] || result['secureApiKey:groq'];
+    
+    if (!apiKey) {
+      throw new Error('No transcription API key available');
+    }
+    
+    // Use OpenAI Whisper API for transcription
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${atob(apiKey)}`,
+        'Content-Type': 'multipart/form-data'
+      },
+      body: audioData // Should be FormData with audio file
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Transcription API error: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      transcription: data.text
+    };
+  } catch (error) {
+    console.error('Transcription failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown transcription error',
+      transcription: ''
+    };
+  }
 }
 
 async function generateSpeech(text) {
-  // Mock speech generation - replace with actual API call
-  return {
-    success: true,
-    audioUrl: "data:audio/wav;base64,mock-audio-data"
-  };
+  try {
+    // Get API keys from storage
+    const result = await chrome.storage.local.get(['secureApiKey:openai', 'secureApiKey:anthropic', 'secureApiKey:groq']);
+    const apiKey = result['secureApiKey:openai'] || result['secureApiKey:groq'];
+    
+    if (!apiKey) {
+      throw new Error('No speech generation API key available');
+    }
+    
+    // Use OpenAI TTS API for speech generation
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${atob(apiKey)}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: text,
+        voice: 'alloy',
+        response_format: 'mp3'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Speech API error: ${response.statusText}`);
+    }
+    
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    
+    return {
+      success: true,
+      audioUrl
+    };
+  } catch (error) {
+    console.error('Speech generation failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown speech generation error',
+      audioUrl: ''
+    };
+  }
 }
 
 async function processImage(imageData) {
-  // Mock image processing - replace with actual API call
-  return {
-    success: true,
-    processedData: "mock-processed-image-data"
-  };
+  try {
+    // Get API keys from storage
+    const result = await chrome.storage.local.get(['secureApiKey:openai', 'secureApiKey:anthropic']);
+    const apiKey = result['secureApiKey:openai'] || result['secureApiKey:anthropic'];
+    
+    if (!apiKey) {
+      throw new Error('No image processing API key available');
+    }
+    
+    // Use OpenAI Vision API for image processing
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${atob(apiKey)}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-vision-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze this image and describe what you see.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageData
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 300
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Vision API error: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      processedData: data.choices[0]?.message?.content || 'No analysis available'
+    };
+  } catch (error) {
+    console.error('Image processing failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown image processing error',
+      processedData: ''
+    };
+  }
 }
 
 function cleanup() {

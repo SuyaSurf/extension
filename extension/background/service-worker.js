@@ -123,6 +123,25 @@ class ExtensionServiceWorker {
           this.fetchTrending().then(sendResponse);
           return true;
 
+        case 'store-api-key':
+          this.handleStoreApiKey(msg.payload).then(sendResponse);
+          return true;
+
+        case 'remove-api-key':
+          this.handleRemoveApiKey(msg.payload).then(sendResponse);
+          return true;
+
+        case 'open-review-scheduler':
+          chrome.tabs.create({ 
+            url: chrome.runtime.getURL('ui/review-scheduler.html'),
+            active: true 
+          }).then(tab => {
+            sendResponse({ success: true, tabId: tab.id });
+          }).catch(error => {
+            sendResponse({ success: false, error: error.message });
+          });
+          return true;
+
         case 'MEETING_MEETING_STARTED':
           chrome.action.setBadgeText({ text: '🔴' });
           chrome.action.setBadgeBackgroundColor({ color: '#FF4444' });
@@ -536,6 +555,39 @@ class ExtensionServiceWorker {
       chrome.tabs.sendMessage(tab.id, { type: 'SHOW_TRENDING_FEED' }).catch(() => {});
     }
     return { ok: true };
+  }
+
+  async handleStoreApiKey(payload) {
+    try {
+      const { providerId, key } = payload;
+      const STORAGE_PREFIX = 'secureApiKey:';
+      
+      // Store in chrome storage with basic encoding (btoa is not encryption but prevents casual reading)
+      await chrome.storage.local.set({ 
+        [`${STORAGE_PREFIX}${providerId}`]: key ? btoa(key) : '' 
+      });
+      
+      console.log(`API key stored for provider: ${providerId}`);
+      return { ok: true };
+    } catch (error) {
+      console.error('Failed to store API key:', error);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async handleRemoveApiKey(payload) {
+    try {
+      const { providerId } = payload;
+      const STORAGE_PREFIX = 'secureApiKey:';
+      
+      await chrome.storage.local.remove(`${STORAGE_PREFIX}${providerId}`);
+      
+      console.log(`API key removed for provider: ${providerId}`);
+      return { ok: true };
+    } catch (error) {
+      console.error('Failed to remove API key:', error);
+      return { ok: false, error: error.message };
+    }
   }
 }
 

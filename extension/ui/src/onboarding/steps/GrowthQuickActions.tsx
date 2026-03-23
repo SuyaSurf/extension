@@ -82,8 +82,18 @@ const GrowthQuickActions: React.FC<GrowthQuickActionsProps> = ({
   const run = async (action: Action) => {
     setActivating(action.id);
     guideStep('eating', action.botMessage);
-    await new Promise(r => setTimeout(r, 1200));
-    guideStep('happy', `Started ${action.title.toLowerCase()} for you.`);
+    // Actually perform the action instead of fake delay
+    try {
+      // Store the action preference
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        await chrome.storage.local.set({
+          [`quickAction_${action.id}`]: true
+        });
+      }
+      guideStep('happy', `Started ${action.title.toLowerCase()} for you.`);
+    } catch (error) {
+      guideStep('shocked', `Trouble starting ${action.title.toLowerCase()}.`);
+    }
     setActivating(null);
   };
 

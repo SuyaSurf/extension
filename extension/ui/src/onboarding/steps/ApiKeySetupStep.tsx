@@ -44,8 +44,16 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
   const hasOneConnected = connectedCount >= 1;
 
   useEffect(() => {
-    if (hasOneConnected) { completeStep('api-keys'); guideStep('happy', `${connectedCount} AI engine${connectedCount > 1 ? 's' : ''} connected — ready to go!`); }
-  }, [hasOneConnected, connectedCount]);
+    const hasOneValidProvider = PROVIDERS.some(p => 
+      apiKeyStatus[p.id]?.connected && apiKeyStatus[p.id]?.hasTested
+    );
+    
+    if (hasOneValidProvider) { 
+      completeStep('api-keys'); 
+      const providerCount = PROVIDERS.filter(p => apiKeyStatus[p.id]?.connected && apiKeyStatus[p.id]?.hasTested).length;
+      guideStep('happy', `AI engine${providerCount > 1 ? 's' : ''} ready! You can add more providers anytime.`);
+    }
+  }, [apiKeyStatus]);
 
   const persistKey = useCallback(async (id: ProviderId, raw: string) => {
     if (typeof chrome !== 'undefined') {
@@ -65,18 +73,34 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
 
   const handleConnect = async (p: ProviderConfig) => {
     const val = formValues[p.id]?.trim();
-    if (!val) { setError('Paste a valid API key first.'); return; }
-    setError(null); setSaving(p.id);
+    if (!val) { 
+      setError('Paste a valid API key first.'); 
+      return; 
+    }
+    
+    // Validate key format before storing
+    if (!validateKeyFormat(p.id, val)) {
+      setError(`Invalid ${p.label} API key format. Please check the key and try again.`);
+      guideStep('shocked', `That ${p.label} key doesn't look right.`);
+      return;
+    }
+    
+    setError(null); 
+    setSaving(p.id);
     guideStep('eating', `Sealing your ${p.label} key…`);
+    
     try {
       await persistKey(p.id, val);
-      updateApiKeyStatus(p.id, { connected: true, lastUpdated: Date.now(), hasTested: apiKeyStatus[p.id]?.hasTested ?? false });
+      updateApiKeyStatus(p.id, { connected: true, lastUpdated: Date.now(), hasTested: false });
       setFormValues(prev => ({ ...prev, [p.id]: '' }));
-      guideStep('happy', `${p.label} is ready!`);
-    } catch {
+      guideStep('happy', `${p.label} key stored! Test it to make sure it works.`);
+    } catch (error) {
+      console.error('Failed to store API key:', error);
       setError('Storage error — please try again.');
       guideStep('shocked', `Trouble storing the ${p.label} key.`);
-    } finally { setSaving(null); }
+    } finally { 
+      setSaving(null); 
+    }
   };
 
   const handleRemove = async (p: ProviderConfig) => {
@@ -85,13 +109,143 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
     finally { setSaving(null); }
   };
 
+  // API key format validation patterns
+  const KEY_FORMATS = {
+    openai: /^sk-[a-zA-Z0-9]{48}$/,
+    anthropic: /^sk-ant-api03-[a-zA-Z0-9_-]{95}$/,
+    deepseek: /^sk-[a-zA-Z0-9]{48}$/,
+    groq: /^gsk_[a-zA-Z0-9]{51}$/
+  };
+
+  const validateKeyFormat = (providerId: ProviderId, key: string): boolean => {
+    const pattern = KEY_FORMATS[providerId];
+    return pattern ? pattern.test(key) : false;
+  };
+
   const handleTest = async (p: ProviderConfig) => {
+    const storedKey = await getStoredKey(p.id);
+    if (!storedKey) {
+      setError('No API key found to test. Please connect a key first.');
+      guideStep('shocked', 'No key to test!');
+      return;
+    }
+
     setTesting(p.id);
+    setError(null);
     guideStep('thinking', `Testing ${p.label}…`);
-    await new Promise(r => setTimeout(r, 1400));
-    updateApiKeyStatus(p.id, { connected: true, hasTested: true, lastUpdated: Date.now() });
-    guideStep('happy', `${p.label} responded perfectly!`);
-    setTesting(null);
+    
+    try {
+      // Test with actual API call based on provider
+      let isValid = false;
+      let errorMessage = '';
+      
+      switch (p.id) {
+        case 'openai':
+          isValid = await testOpenAIKey(storedKey);
+          break;
+        case 'anthropic':
+          isValid = await testAnthropicKey(storedKey);
+          break;
+        case 'deepseek':
+          isValid = await testDeepSeekKey(storedKey);
+          break;
+        case 'groq':
+          isValid = await testGroqKey(storedKey);
+          break;
+        default:
+          throw new Error('Unknown provider');
+      }
+      
+      if (isValid) {
+        updateApiKeyStatus(p.id, { connected: true, hasTested: true, lastUpdated: Date.now() });
+        guideStep('happy', `${p.label} key is working perfectly!`);
+      } else {
+        updateApiKeyStatus(p.id, { connected: false, hasTested: true, lastUpdated: Date.now() });
+        guideStep('shocked', `${p.label} key failed validation.`);
+        setError('API key test failed. Please check the key and try again.');
+      }
+    } catch (error) {
+      console.error(`API key test failed for ${p.id}:`, error);
+      updateApiKeyStatus(p.id, { connected: false, hasTested: false, lastUpdated: Date.now() });
+      guideStep('shocked', `Trouble testing ${p.label}.`);
+      setError(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const getStoredKey = async (providerId: ProviderId): Promise<string | null> => {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      const result = await chrome.storage.local.get(`${STORAGE_PREFIX}${providerId}`);
+      const stored = result[`${STORAGE_PREFIX}${providerId}`];
+      return stored ? atob(stored) : null;
+    }
+    const stored = localStorage.getItem(`${STORAGE_PREFIX}${providerId}`);
+    return stored ? atob(stored) : null;
+  };
+
+  // Real API key testing functions
+  const testOpenAIKey = async (key: string): Promise<boolean> => {
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const testAnthropicKey = async (key: string): Promise<boolean> => {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'test' }]
+        })
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const testDeepSeekKey = async (key: string): Promise<boolean> => {
+    try {
+      const response = await fetch('https://api.deepseek.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const testGroqKey = async (key: string): Promise<boolean> => {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
   };
 
   return (
@@ -100,12 +254,14 @@ const ApiKeySetupStep: React.FC<ApiKeySetupStepProps> = ({
       <header className="ob-col">
         <div className="ob-row">
           <span className="ob-step-label">✦ Security layer</span>
-          <span className={`ak-counter ob-tag ${connectedCount >= 1 ? 'ob-tag--green' : 'ob-tag--orange'}`}>{connectedCount} / {PROVIDERS.length} connected</span>
+          <span className={`ak-counter ob-tag ${hasOneConnected ? 'ob-tag--green' : 'ob-tag--orange'}`}>
+            {hasOneConnected ? '✓ Ready' : `${connectedCount} / ${PROVIDERS.length} connected`}
+          </span>
         </div>
         <h2 className="ob-step-title">Connect AI Providers</h2>
         <p className="ob-step-sub">
-          I route tasks to the ideal model. Connect at least one provider to get started — 
-          they're stored inside Chrome's local storage and never leave your browser.
+          I route tasks to the ideal model. Connect just one provider to get started — 
+          you can always add more later. Keys are stored securely in Chrome's local storage.
         </p>
       </header>
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import ReactDOM from 'react-dom/client'
 import SuyaBot, { SuyaMode } from '@/components/SuyaBot'
 
@@ -911,9 +911,46 @@ const CharacterRuntime: React.FC = () => {
   }, [])
 
   const handleScheduleReview = React.useCallback(async () => {
-    setMessage('Review scheduling feature coming soon!')
-    setIsShocked(true)
-    window.setTimeout(() => setIsShocked(false), 2000)
+    setMessage('Opening review scheduler...')
+    setIsShocked(false)
+    
+    // Check if Chrome runtime is available
+    if (typeof chrome === 'undefined' || !chrome.runtime) {
+      setMessage('Chrome extension not available')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+      return
+    }
+    
+    // Open the review scheduler in a new tab
+    try {
+      chrome.runtime.sendMessage({
+        type: 'open-review-scheduler'
+      }, (response) => {
+        // Check for Chrome runtime errors
+        if (chrome.runtime.lastError) {
+          setMessage(`Error: ${chrome.runtime.lastError.message}`)
+          setIsShocked(true)
+          window.setTimeout(() => setIsShocked(false), 3000)
+          return
+        }
+        
+        if (response?.success) {
+          setMessage('Review scheduler opened!')
+          // Clear success message after 2 seconds
+          window.setTimeout(() => setMessage(''), 2000)
+        } else {
+          setMessage('Could not open scheduler')
+          setIsShocked(true)
+          window.setTimeout(() => setIsShocked(false), 2000)
+        }
+      })
+    } catch (error) {
+      console.error('Failed to open review scheduler:', error)
+      setMessage('Failed to open scheduler')
+      setIsShocked(true)
+      window.setTimeout(() => setIsShocked(false), 2000)
+    }
   }, [])
 
   const handleTestElement = React.useCallback(async () => {
@@ -984,22 +1021,100 @@ const CharacterRuntime: React.FC = () => {
       }
     }
 
-    const handleCharacterMessage = (event: Event) => {
+    const handleCharacterMessage = useCallback((event: Event) => {
       const customEvent = event as CustomEvent
-      const { message, mode, isThinkingHard, isShocked, isBusy } = customEvent.detail
+      const { message, mode, isThinkingHard, isShocked, isBusy, actions, results } = customEvent.detail
+      
+      // Update character state
       setMessage(message)
       if (mode) setMode(mode)
       setIsThinkingHard(isThinkingHard || false)
       setIsShocked(isShocked || false)
       setIsBusy(isBusy || false)
-    }
+      
+      // Process bot response actions and results
+      if (actions && Array.isArray(actions)) {
+        // Create result objects for the input interface
+        const botResults = actions.map((action: any, index: number) => ({
+          id: `bot-action-${index}`,
+          type: 'action' as const,
+          content: action.description || message,
+          actions: [{
+            label: action.label || 'Execute',
+            action: () => {
+              // Execute the action handler
+              if (action.handler && typeof action.handler === 'function') {
+                action.handler()
+              } else if (action.type === 'copy') {
+                navigator.clipboard.writeText(message || '')
+              } else if (action.type === 'followup') {
+                // Trigger follow-up input
+                const inputInterface = document.querySelector('.suya-input-interface textarea') as HTMLTextAreaElement
+                if (inputInterface) {
+                  inputInterface.focus()
+                  inputInterface.value = action.prompt || 'Tell me more...'
+                  inputInterface.dispatchEvent(new Event('input', { bubbles: true }))
+                }
+              }
+            },
+            variant: action.variant || 'primary'
+          }]
+        }))
+        
+        // Emit event to update input interface with results
+        window.dispatchEvent(new CustomEvent('suya-bot-response', {
+          detail: { results: botResults }
+        }))
+      }
+      
+      // Handle direct results from skills
+      if (results && Array.isArray(results)) {
+        window.dispatchEvent(new CustomEvent('suya-bot-response', {
+          detail: { results }
+        }))
+      }
+    }, [])
 
     chrome.runtime.onMessage.addListener(handleRuntimeMessage)
     window.addEventListener('suya-character-message', handleCharacterMessage)
     
+    // Listen for bot input events and route to skills
+    const handleBotInput = useCallback(async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { message, isVoice } = customEvent.detail;
+      
+      try {
+        // Get skill registry and process through chat-skills
+        const skillRegistry = (window as any).skillRegistry;
+        const chatSkill = skillRegistry?.getSkill?.('chat-skills');
+        
+        if (chatSkill) {
+          await chatSkill.handleAction('processBotInput', { message, isVoice });
+        } else {
+          // Fallback: just show the message
+          if (window.CharacterMessenger) {
+            await window.CharacterMessenger.sendMessage(message, {
+              mode: 'thinking',
+              isThinkingHard: true
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Bot input processing failed:', error);
+        if (window.CharacterMessenger) {
+          await window.CharacterMessenger.sendMessage('I had trouble processing that. Please try again.', {
+            isShocked: true
+          });
+        }
+      }
+    }, []);
+    
+    window.addEventListener('suya-bot-input', handleBotInput);
+    
     return () => {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
       window.removeEventListener('suya-character-message', handleCharacterMessage)
+      window.removeEventListener('suya-bot-input', handleBotInput)
     }
   }, [pulseMode, runCommand])
 
