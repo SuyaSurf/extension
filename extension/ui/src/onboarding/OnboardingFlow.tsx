@@ -324,6 +324,25 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
         suyaSettings: settings
       });
 
+      // ── SuyaNet Integration: Feed onboarding data into the UserBrain ──
+      // This triggers signal collection (history, bookmarks, extensions),
+      // sends everything to the server for SRM + NN training, and loads
+      // the trained model back into the extension for local inference.
+      guideStep('thinking', 'Learning about you — building your personal AI model...');
+      try {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+          await chrome.runtime.sendMessage({
+            action: 'ingest-onboarding',
+            skill: 'user-brain',
+            data: { userProfile: onboardingState.userProfile }
+          });
+          console.log('[Onboarding] SuyaNet user brain initialized successfully');
+        }
+      } catch (brainError) {
+        // Non-blocking — the extension works fine without the brain
+        console.warn('[Onboarding] SuyaNet brain initialization failed (non-critical):', brainError);
+      }
+
       guideStep('happy', 'All set! I will keep curating growth fuel for you.');
       setTimeout(() => onComplete?.(), 1200);
     } catch (error) {

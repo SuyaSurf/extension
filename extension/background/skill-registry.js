@@ -10,6 +10,7 @@ import { VideoGenerationSkill } from '../skills/video-generation/skill.js';
 import { AudioGenerationSkill } from '../skills/audio-generation/skill.js';
 import { ChatSkillsSkill } from '../skills/chat-skills/skill.js';
 import { QATestingSkill } from '../skills/qa-testing/skill.js';
+import { UserBrainSkill } from '../skills/user-brain/skill.js';
 
 class SkillRegistry {
   constructor() {
@@ -84,9 +85,9 @@ class SkillRegistry {
       : { ApplicationWritingSkill: null, DocumentSkillsSkill: null, UIAssistantSkill: null, UXReviewSkill: null };
     
     const skillConfigs = [
-      { 
+      {
         name: 'background-tasks',
-        class: BackgroundTasksSkill, 
+        class: BackgroundTasksSkill,
         autoActivate: true,
         priority: 1,
         config: {
@@ -95,9 +96,21 @@ class SkillRegistry {
           taskTimeout: 300000 // 5 minutes
         }
       },
-      { 
+      {
+        name: 'user-brain',
+        class: UserBrainSkill,
+        autoActivate: true,
+        priority: 1.5,
+        config: {
+          serverEndpoint: 'https://api.suya.example.com',
+          syncIntervalMinutes: 60,
+          autoRetrain: true,
+          minSignalsForRetrain: 20
+        }
+      },
+      {
         name: 'server-skills',
-        class: ServerSkillsSkill, 
+        class: ServerSkillsSkill,
         autoActivate: true,
         priority: 2,
         config: {

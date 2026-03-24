@@ -153,8 +153,49 @@ class ExtensionServiceWorker {
           chrome.storage.local.set({ lastMeetingSummary: msg.summary });
           sendResponse({ ok: true });
           break;
+
+        case 'BRAIN_GET_DECISIONS':
+          this.getBrainDecisions(msg.payload).then(sendResponse);
+          return true;
+
+        case 'BRAIN_GET_RECOMMENDATIONS':
+          this.getBrainRecommendations().then(sendResponse);
+          return true;
       }
     });
+  }
+
+  /**
+   * Get contextual decisions from the UserBrain for the current URL/context.
+   */
+  async getBrainDecisions(payload) {
+    try {
+      const brainSkill = this.skillRegistry.getSkill('user-brain');
+      if (!brainSkill) return { ok: false, error: 'UserBrain skill not loaded' };
+
+      const result = payload?.url
+        ? await brainSkill.handleAction('decide-for-url', { url: payload.url, topK: payload.topK || 5 })
+        : await brainSkill.handleAction('decide', { context: payload?.context, topK: payload?.topK || 5 });
+
+      return { ok: true, data: result };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get user recommendations (interests, content, skills) from the UserBrain.
+   */
+  async getBrainRecommendations() {
+    try {
+      const brainSkill = this.skillRegistry.getSkill('user-brain');
+      if (!brainSkill) return { ok: false, error: 'UserBrain skill not loaded' };
+
+      const result = await brainSkill.handleAction('get-recommendations', { topK: 10 });
+      return { ok: true, data: result };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
   }
 
   async handleInstall(details) {
@@ -296,10 +337,18 @@ class ExtensionServiceWorker {
 
   async handleAlarm(alarm) {
     console.log('Alarm triggered:', alarm.name);
-    
+
     try {
       // Route to task scheduler
       await this.taskScheduler.handleAlarm(alarm);
+
+      // Route brain-specific alarms to the UserBrain skill
+      if (alarm.name === 'user-brain-sync') {
+        const brainSkill = this.skillRegistry.getSkill('user-brain');
+        if (brainSkill && brainSkill.isActive()) {
+          await brainSkill.handleAlarm(alarm);
+        }
+      }
     } catch (error) {
       console.error('Error handling alarm:', error);
     }

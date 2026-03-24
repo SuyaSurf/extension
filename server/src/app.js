@@ -24,6 +24,7 @@ import transcriptionRoutes from './routes/transcription.js';
 import ttsRoutes from './routes/tts.js';
 import notesRoutes from './routes/notes.js';
 import applicationAIRoutes from '../routes/application-ai.js';
+import learningRoutes from '../routes/learning.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,6 +111,7 @@ if (cluster.isPrimary && process.env.NODE_ENV === 'production') {
     await fastify.register(ttsRoutes, { prefix: '/api/tts' });
     await fastify.register(notesRoutes, { prefix: '/api/notes' });
     await fastify.register(applicationAIRoutes, { prefix: '/api' });
+    await fastify.register(learningRoutes, { prefix: '/api/learning' });
 
     return fastify;
   }
