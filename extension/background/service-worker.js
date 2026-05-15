@@ -571,11 +571,16 @@ class ExtensionServiceWorker {
   async injectFormFiller(sender) {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (!tab?.id) return { ok: false };
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files:  ['content-scripts/form-filler-trigger.js'],
-    }).catch(() => {});
-    return { ok: true };
+
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'suya-popup-command',
+        command: 'fill-forms',
+      });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
   }
 
   async injectPageAnalyzer(sender) {

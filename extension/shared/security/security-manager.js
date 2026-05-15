@@ -46,7 +46,7 @@ class SecurityManager {
       // Generate or retrieve encryption key
       const storedKey = await chrome.storage.local.get(['encryptionKey']);
       
-      if (storedKey.encryptionKey) {
+      if (Array.isArray(storedKey.encryptionKey) && storedKey.encryptionKey.length > 0) {
         this.encryptionKey = new Uint8Array(storedKey.encryptionKey);
       } else {
         this.encryptionKey = await this.generateEncryptionKey();
@@ -65,14 +65,17 @@ class SecurityManager {
 
   async generateEncryptionKey() {
     // Generate a 256-bit key for AES-GCM
-    return await crypto.subtle.generateKey(
+    const key = await crypto.subtle.generateKey(
       {
         name: 'AES-GCM',
         length: 256
       },
       true,
       ['encrypt', 'decrypt']
-    ).then(key => crypto.subtle.exportKey('raw', key));
+    );
+
+    const rawKey = await crypto.subtle.exportKey('raw', key);
+    return new Uint8Array(rawKey);
   }
 
   async encryptData(data) {
