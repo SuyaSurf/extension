@@ -55,7 +55,11 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["vendors.js", "698.js", "content-script.js"],
+      "js": [
+        "vendors/vendors.bundle.js",
+        "695/695.bundle.js",
+        "content-script/content-script.bundle.js"
+      ],
       "run_at": "document_idle"
     }
   ],
