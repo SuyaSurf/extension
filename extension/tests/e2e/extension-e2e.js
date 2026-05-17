@@ -115,6 +115,7 @@ async function main() {
     });
     await dashboardPage.reload();
     await dashboardPage.waitForSelector('.newtab-container', { timeout: 10000 });
+    await dashboardPage.waitForSelector('.dreams-section', { timeout: 10000 });
 
     let settingsPage;
     try {
@@ -182,6 +183,7 @@ async function main() {
         'extension service worker loaded',
         'new-tab onboarding intro and manual path',
         'new-tab dashboard after onboarding flag',
+        'new-tab memory dreams workspace',
         'settings navigation',
         'popup command surface',
         'content-script mount on normal web page',

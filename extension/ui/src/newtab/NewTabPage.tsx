@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import NewsSection from './sections/NewsSection';
 import NotificationsSection from './sections/NotificationsSection';
 import QuickActionsSection from './sections/QuickActionsSection';
+import DreamsSection from './sections/DreamsSection';
 
 const NewTabPage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -54,6 +55,7 @@ const NewTabPage: React.FC = () => {
 
       <main className="newtab-main">
         <div className="dashboard-grid">
+          <DreamsSection />
           <NewsSection />
           <NotificationsSection />
           <QuickActionsSection />
@@ -115,6 +117,9 @@ const NewTabPage: React.FC = () => {
         @media (min-width: 1024px) {
           .dashboard-grid {
             grid-template-columns: 2fr 1fr;
+          }
+          .dreams-section {
+            grid-column: 1 / -1;
           }
           .dashboard-grid > :last-child {
             grid-column: 1 / -1;

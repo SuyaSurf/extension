@@ -162,12 +162,21 @@ class PersonalMemorySkill {
       case 'extract-dreams':
       case 'extractDreams':
         return this.extractDreams(data);
+      case 'list-dreams':
+      case 'listDreams':
+        return this.listDreams(data);
+      case 'get-dream':
+      case 'getDream':
+        return this.getDream(data);
       case 'create-dream':
       case 'createDream':
         return this.createDream(data);
       case 'create-dream-iteration':
       case 'createDreamIteration':
         return this.createDreamIteration(data);
+      case 'delete-dream-iteration':
+      case 'deleteDreamIteration':
+        return this.deleteDreamIteration(data);
       case 'delete-memory':
       case 'deleteMemory':
         return this.deleteMemory(data);
@@ -180,6 +189,9 @@ class PersonalMemorySkill {
       case 'export-memory':
       case 'exportMemory':
         return this.exportMemory();
+      case 'list-memory':
+      case 'listMemory':
+        return this.listMemory(data);
       default:
         throw new Error(`[PersonalMemorySkill] Unknown action: ${action}`);
     }
@@ -392,6 +404,36 @@ class PersonalMemorySkill {
     };
   }
 
+  listDreams(data = {}) {
+    const limit = clampNumber(data.limit, 1, 100, 20);
+    const includeSources = Boolean(data.includeSources);
+    const dreams = [...this.dreams.values()]
+      .sort((a, b) => safeTimestamp(b.updatedAt) - safeTimestamp(a.updatedAt))
+      .slice(0, limit)
+      .map(dream => this._dreamSummary(dream, { includeSources }));
+
+    return {
+      success: true,
+      total: this.dreams.size,
+      dreams
+    };
+  }
+
+  getDream(data = {}) {
+    const dream = this.dreams.get(data.dreamId || data.id);
+    if (!dream) {
+      return {
+        success: false,
+        error: 'Dream not found.'
+      };
+    }
+
+    return {
+      success: true,
+      dream: this._dreamSummary(dream, { includeSources: true, includeIterations: true })
+    };
+  }
+
   async createDream(data = {}) {
     let sourceMemoryIds = Array.isArray(data.sourceMemoryIds) ? data.sourceMemoryIds : [];
     if (!sourceMemoryIds.length && data.query) {
@@ -452,6 +494,26 @@ class PersonalMemorySkill {
     };
   }
 
+  async deleteDreamIteration(data = {}) {
+    const dream = this.dreams.get(data.dreamId);
+    if (!dream) {
+      return {
+        success: false,
+        error: 'Dream not found.'
+      };
+    }
+
+    const before = dream.iterations?.length || 0;
+    dream.iterations = (dream.iterations || []).filter(iteration => iteration.id !== data.iterationId);
+    dream.updatedAt = Date.now();
+    await this._save();
+
+    return {
+      success: true,
+      deleted: before - dream.iterations.length
+    };
+  }
+
   async deleteMemory(data = {}) {
     const ids = Array.isArray(data.ids) ? data.ids : [data.id].filter(Boolean);
     let deleted = 0;
@@ -504,6 +566,14 @@ class PersonalMemorySkill {
       entries: [...this.entries.values()],
       dreams: [...this.dreams.values()]
     };
+  }
+
+  listMemory(data = {}) {
+    return this.searchMemory({
+      query: data.query || '',
+      limit: data.limit || 20,
+      filters: data.filters || {}
+    });
   }
 
   _entryFromHistory(item) {
@@ -699,6 +769,29 @@ class PersonalMemorySkill {
       snippet: this._snippet(entry, queryTokens),
       score: Number(score.toFixed(3)),
       privacy: entry.privacy
+    };
+  }
+
+  _dreamSummary(dream, options = {}) {
+    const sourceEntries = (dream.sourceMemoryIds || [])
+      .map(id => this.entries.get(id))
+      .filter(Boolean);
+    const sources = sourceEntries.map(entry => this._resultFromEntry(entry, 1, []));
+    const iterations = [...(dream.iterations || [])]
+      .sort((a, b) => safeTimestamp(b.createdAt) - safeTimestamp(a.createdAt));
+
+    return {
+      id: dream.id,
+      title: dream.title,
+      description: dream.description,
+      tags: dream.tags || [],
+      sourceMemoryIds: dream.sourceMemoryIds || [],
+      sourceCount: sourceEntries.length,
+      iterationCount: iterations.length,
+      createdAt: dream.createdAt,
+      updatedAt: dream.updatedAt,
+      sources: options.includeSources ? sources : undefined,
+      iterations: options.includeIterations ? iterations : iterations.slice(0, 3)
     };
   }
 

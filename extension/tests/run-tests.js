@@ -138,6 +138,17 @@ function assertPopupResponseHardening() {
   assert(source.includes('personal-memory'), 'popup must expose the personal memory query flow');
 }
 
+function assertNewTabDreamsSurface() {
+  const pageSource = fs.readFileSync(path.join(extensionDir, 'ui/src/newtab/NewTabPage.tsx'), 'utf8');
+  const dreamsSource = fs.readFileSync(path.join(extensionDir, 'ui/src/newtab/sections/DreamsSection.tsx'), 'utf8');
+
+  assert(pageSource.includes('DreamsSection'), 'newtab dashboard must render the dreams workspace');
+  assert(dreamsSource.includes('list-dreams'), 'dreams workspace must list saved dreams');
+  assert(dreamsSource.includes('extract-dreams'), 'dreams workspace must extract dream candidates from memory');
+  assert(dreamsSource.includes('create-dream-iteration'), 'dreams workspace must create dream iterations');
+  assert(dreamsSource.includes('delete-dream-iteration'), 'dreams workspace must delete stale iterations');
+}
+
 async function assertPersonalMemorySkill() {
   const storage = {
     suya_ah_projects: {
@@ -250,6 +261,21 @@ async function assertPersonalMemorySkill() {
     });
     assert.strictEqual(iteration.success, true, 'dream iteration should be created');
     assert(iteration.iteration.body.includes('Source evidence'), 'dream iteration should retain source grounding');
+
+    const listedDreams = await skill.handleAction('list-dreams', { includeSources: true });
+    assert.strictEqual(listedDreams.success, true, 'dreams should be listable for dashboard display');
+    assert.strictEqual(listedDreams.dreams.length, 1, 'saved dream should appear in list-dreams');
+    assert(listedDreams.dreams[0].sources.length > 0, 'listed dreams should expose grounded source summaries');
+
+    const fetchedDream = await skill.handleAction('get-dream', { dreamId: dream.dream.id });
+    assert.strictEqual(fetchedDream.success, true, 'dream details should be fetchable');
+    assert.strictEqual(fetchedDream.dream.iterations.length, 1, 'dream details should include iterations');
+
+    const deletedIteration = await skill.handleAction('delete-dream-iteration', {
+      dreamId: dream.dream.id,
+      iterationId: iteration.iteration.id
+    });
+    assert.strictEqual(deletedIteration.deleted, 1, 'dream iterations should be deletable');
   } finally {
     global.chrome = previousChrome;
   }
@@ -262,6 +288,7 @@ async function main() {
   await assertSecurityManagerValidation();
   assertBackgroundMessageRouter();
   assertPopupResponseHardening();
+  assertNewTabDreamsSurface();
   await assertPersonalMemorySkill();
   console.log('All extension production-readiness checks passed.');
 }
