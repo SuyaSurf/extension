@@ -7,3 +7,6 @@ dist-crx/
 
 # Local logs
 logs/
+
+# Local signing keys
+private-key.pem

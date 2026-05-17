@@ -8,7 +8,11 @@
     "build:ui": "cd ui && npm run build",
     "build:all": "npm run build:ui && npm run build",
     "build:icons": "node create-character-icons.js",
+    "test": "node tests/run-tests.js",
+    "test:e2e": "node tests/e2e/extension-e2e.js",
+    "verify": "npm run build:all && npm test && npm run test:e2e",
     "package": "node package-crx.js",
+    "package:zip": "npm run build:all && node package-crx.js",
     "package:install": "npm install archiver",
     "dev": "npm run build:all && echo 'Load build/ directory as unpacked extension in Chrome DevTools'",
     "clean": "node -e \"const fs=require('fs');['build','dist-crx'].forEach(d=>fs.existsSync(d)&&fs.rmSync(d,{recursive:true,force:true})); console.log('✅ Cleaned build directories')\""
