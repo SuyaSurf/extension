@@ -18,6 +18,16 @@ interface FormStatus {
   lastScan: number;
 }
 
+interface MemorySource {
+  id: string;
+  sourceType: string;
+  title: string;
+  domain?: string | null;
+  date?: string;
+  snippet?: string;
+  url?: string | null;
+}
+
 type SkillResponse<T extends Record<string, any> = Record<string, any>> = {
   success?: boolean;
   error?: string;
@@ -120,6 +130,10 @@ const SimplePopup: React.FC = () => {
   });
   const [showProfileSwitcher, setShowProfileSwitcher] = React.useState(false);
   const [showHistory, setShowHistory] = React.useState(false);
+  const [memoryQuery, setMemoryQuery] = React.useState('');
+  const [memoryAnswer, setMemoryAnswer] = React.useState('');
+  const [memorySources, setMemorySources] = React.useState<MemorySource[]>([]);
+  const [isMemoryBusy, setIsMemoryBusy] = React.useState(false);
 
   // Load initial data
   React.useEffect(() => {
@@ -202,6 +216,63 @@ const SimplePopup: React.FC = () => {
       }
     } catch (error) {
       setStatusMessage('Failed to switch profile');
+    }
+  };
+
+  const askMemory = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const query = memoryQuery.trim();
+    if (!query) {
+      setStatusMessage('Ask a question about remembered research or forms.');
+      return;
+    }
+
+    try {
+      setIsMemoryBusy(true);
+      setMemoryAnswer('');
+      setMemorySources([]);
+      setStatusMessage('Indexing local memory...');
+
+      let historyGranted = false;
+      try {
+        historyGranted = await chrome.permissions.contains({ permissions: ['history'] });
+        if (!historyGranted) {
+          historyGranted = await chrome.permissions.request({ permissions: ['history'] });
+        }
+      } catch (error) {
+        console.warn('History permission request failed:', error);
+      }
+
+      await chrome.runtime.sendMessage({
+        skill: 'personal-memory',
+        action: 'index-all',
+        data: {
+          includeForms: true,
+          includeHistory: historyGranted,
+          days: 30,
+          maxResults: 500
+        }
+      });
+
+      const response = await chrome.runtime.sendMessage({
+        skill: 'personal-memory',
+        action: 'answer-memory-question',
+        data: { query, limit: 6 }
+      });
+
+      const payload = getSkillPayload<{
+        answer?: string;
+        sources?: MemorySource[];
+      }>(response);
+
+      setMemoryAnswer(payload?.answer || 'No local memory matched that question yet.');
+      setMemorySources(payload?.sources || []);
+      setStatusMessage(historyGranted ? 'Memory answer is grounded in local browser and form history.' : 'Memory answer is using local form history only.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to query personal memory.');
+    } finally {
+      setIsMemoryBusy(false);
     }
   };
 
@@ -425,6 +496,79 @@ const SimplePopup: React.FC = () => {
       >
         {statusMessage}
       </div>
+
+      <form
+        onSubmit={askMemory}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          padding: '12px',
+          borderRadius: '12px',
+          background: '#fff',
+          border: '1px solid rgba(204, 123, 53, 0.28)'
+        }}
+      >
+        <textarea
+          value={memoryQuery}
+          onChange={(event) => setMemoryQuery(event.target.value)}
+          placeholder="Ask about remembered research or forms"
+          rows={2}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            resize: 'none',
+            border: '1px solid rgba(204, 123, 53, 0.3)',
+            borderRadius: '8px',
+            padding: '9px 10px',
+            fontSize: '12px',
+            lineHeight: 1.4,
+            color: '#2e1408',
+            outlineColor: '#cc7b35'
+          }}
+        />
+        <button
+          type="submit"
+          disabled={isMemoryBusy}
+          style={{
+            padding: '10px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            background: isMemoryBusy ? '#9b7d68' : '#66351a',
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 700,
+            cursor: isMemoryBusy ? 'wait' : 'pointer'
+          }}
+        >
+          {isMemoryBusy ? 'Searching memory...' : 'Ask memory'}
+        </button>
+        {memoryAnswer && (
+          <div style={{ fontSize: '12px', lineHeight: 1.45, color: '#53301f' }}>
+            {memoryAnswer}
+          </div>
+        )}
+        {memorySources.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {memorySources.slice(0, 3).map(source => (
+              <div
+                key={source.id}
+                style={{
+                  padding: '7px 8px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 241, 220, 0.65)',
+                  color: '#53301f',
+                  fontSize: '11px',
+                  lineHeight: 1.35
+                }}
+              >
+                <strong>{source.title}</strong>
+                <span> · {source.domain || source.sourceType}{source.date ? ` · ${source.date}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </form>
 
       {/* Profile Switcher Modal */}
       {showProfileSwitcher && (

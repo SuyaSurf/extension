@@ -18,6 +18,10 @@
     "contextMenus",
     "identity"
   ],
+
+  "optional_permissions": [
+    "history"
+  ],
   
   "host_permissions": [
     "https://*.gmail.com/*",

@@ -11,6 +11,7 @@ import { AudioGenerationSkill } from '../skills/audio-generation/skill.js';
 import { ChatSkillsSkill } from '../skills/chat-skills/skill.js';
 import { QATestingSkill } from '../skills/qa-testing/skill.js';
 import { UserBrainSkill } from '../skills/user-brain/skill.js';
+import { PersonalMemorySkill } from '../skills/personal-memory/skill.js';
 
 class SkillRegistry {
   constructor() {
@@ -106,6 +107,17 @@ class SkillRegistry {
           syncIntervalMinutes: 60,
           autoRetrain: true,
           minSignalsForRetrain: 20
+        }
+      },
+      {
+        name: 'personal-memory',
+        class: PersonalMemorySkill,
+        autoActivate: true,
+        priority: 1.7,
+        config: {
+          historyDays: 30,
+          historyMaxResults: 500,
+          maxEntries: 5000
         }
       },
       {
