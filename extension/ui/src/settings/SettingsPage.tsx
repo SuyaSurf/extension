@@ -5,6 +5,7 @@ type Section =
   | 'bot-behavior'
   | 'skills'
   | 'form-profiles'
+  | 'memory'
   | 'news'
   | 'notifications'
   | 'api-keys';
@@ -30,6 +31,15 @@ interface FormProfile {
   name: string;
   type: 'personal' | 'professional' | 'custom';
   fields: Record<string, string>;
+}
+
+interface MemoryEntry {
+  id: string;
+  sourceType: string;
+  title: string;
+  domain?: string | null;
+  date?: string;
+  snippet?: string;
 }
 
 const SKILLS_REGISTRY = [
@@ -134,6 +144,8 @@ const SettingsPage: React.FC = () => {
         return <SkillsSection settings={settings} updateSetting={updateSetting} />;
       case 'form-profiles':
         return <FormProfilesSection settings={settings} updateSetting={updateSetting} />;
+      case 'memory':
+        return <MemoryPrivacySection />;
       case 'news':
         return <NewsSection settings={settings} updateSetting={updateSetting} />;
       case 'notifications':
@@ -162,6 +174,7 @@ const SettingsPage: React.FC = () => {
             { id: 'bot-behavior', label: 'Bot Behavior', icon: '🤖' },
             { id: 'skills', label: 'Skills', icon: '⚡' },
             { id: 'form-profiles', label: 'Form Profiles', icon: '📝' },
+            { id: 'memory', label: 'Memory', icon: '🧠' },
             { id: 'news', label: 'News', icon: '📰' },
             { id: 'notifications', label: 'Notifications', icon: '🔔' },
             { id: 'api-keys', label: 'API Keys', icon: '🔑' },
@@ -401,6 +414,238 @@ const FormProfilesSection: React.FC<{ settings: Settings; updateSetting: <K exte
     <button className="btn-primary">Add New Profile</button>
   </section>
 );
+
+const getSkillPayload = <T extends object>(response: ({ success?: boolean; error?: string; data?: T } & T) | null | undefined): T | null => {
+  if (!response || response.success === false) return null;
+  return (response.data && typeof response.data === 'object' ? response.data : response) as T;
+};
+
+const sendMemoryAction = async <T extends object>(action: string, data: Record<string, unknown> = {}): Promise<T | null> => {
+  const response = await chrome.runtime.sendMessage({
+    skill: 'personal-memory',
+    action,
+    data
+  });
+
+  return getSkillPayload<T>(response);
+};
+
+const MemoryPrivacySection: React.FC = () => {
+  const [entries, setEntries] = useState<MemoryEntry[]>([]);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const refreshMemory = useCallback(async (nextQuery = '') => {
+    const payload = await sendMemoryAction<{ results?: MemoryEntry[]; total?: number }>('search-memory', {
+      query: nextQuery,
+      limit: 30
+    });
+    setEntries(payload?.results || []);
+    return payload?.total || 0;
+  }, []);
+
+  useEffect(() => {
+    refreshMemory('').catch(error => setStatus(error instanceof Error ? error.message : 'Unable to load memory.'));
+  }, [refreshMemory]);
+
+  const searchMemory = async () => {
+    setLoading('search');
+    setStatus('');
+    try {
+      const total = await refreshMemory(query);
+      setStatus(`${total} memory items matched.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Memory search failed.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const deleteMemory = async (id: string) => {
+    setLoading(id);
+    setStatus('');
+    try {
+      await sendMemoryAction('delete-memory', { id });
+      await refreshMemory(query);
+      setStatus('Memory item deleted.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Delete failed.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const clearSource = async (sourceType?: string) => {
+    setLoading(sourceType || 'all');
+    setStatus('');
+    try {
+      await sendMemoryAction('clear-memory', sourceType ? { sourceType } : {});
+      await refreshMemory('');
+      setQuery('');
+      setStatus(sourceType ? `${sourceType.replace('_', ' ')} memory cleared.` : 'All local memory cleared.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Clear failed.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const exportMemory = async () => {
+    setLoading('export');
+    setStatus('');
+    try {
+      const payload = await sendMemoryAction<{ entries?: unknown[]; dreams?: unknown[]; exportedAt?: number }>('export-memory');
+      const blob = new Blob([JSON.stringify(payload || {}, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `suyasurf-memory-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus(`Exported ${(payload?.entries || []).length} memory items.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Export failed.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <section className="settings-section">
+      <h2>Memory</h2>
+      <p>Review, export, and delete local memory data.</p>
+
+      <div className="memory-toolbar">
+        <input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="Search remembered pages and forms"
+        />
+        <button className="btn-secondary" onClick={searchMemory} disabled={loading !== null}>
+          {loading === 'search' ? 'Searching...' : 'Search'}
+        </button>
+        <button className="btn-secondary" onClick={exportMemory} disabled={loading !== null}>
+          {loading === 'export' ? 'Exporting...' : 'Export'}
+        </button>
+      </div>
+
+      <div className="memory-danger-zone">
+        <button className="btn-danger" onClick={() => clearSource('browser_history')} disabled={loading !== null}>
+          Clear Browser Memory
+        </button>
+        <button className="btn-danger" onClick={() => clearSource('form_fill')} disabled={loading !== null}>
+          Clear Form Memory
+        </button>
+        <button className="btn-danger" onClick={() => clearSource()} disabled={loading !== null}>
+          Clear All Memory
+        </button>
+      </div>
+
+      {status && <p className="memory-status">{status}</p>}
+
+      <div className="memory-list">
+        {entries.length === 0 ? (
+          <p>No local memory items found.</p>
+        ) : entries.map(entry => (
+          <div className="memory-row" key={entry.id}>
+            <div>
+              <h3>{entry.title}</h3>
+              <p>{entry.domain || entry.sourceType}{entry.date ? ` · ${entry.date}` : ''}</p>
+              {entry.snippet && <small>{entry.snippet}</small>}
+            </div>
+            <button className="btn-danger" onClick={() => deleteMemory(entry.id)} disabled={loading !== null}>
+              {loading === entry.id ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .memory-toolbar {
+          display: grid;
+          grid-template-columns: minmax(180px, 1fr) auto auto;
+          gap: 10px;
+          margin: 20px 0 12px;
+        }
+        .memory-toolbar input {
+          border: 1px solid #d8d8d8;
+          border-radius: 8px;
+          font-size: 14px;
+          min-width: 0;
+          padding: 10px 12px;
+        }
+        .memory-danger-zone {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+        .memory-status {
+          color: #555;
+          font-size: 14px;
+        }
+        .memory-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .memory-row {
+          align-items: flex-start;
+          background: #fff;
+          border: 1px solid #e2e2e2;
+          border-radius: 8px;
+          display: flex;
+          gap: 16px;
+          justify-content: space-between;
+          padding: 14px;
+        }
+        .memory-row h3 {
+          color: #222;
+          font-size: 16px;
+          margin: 0 0 4px;
+        }
+        .memory-row p,
+        .memory-row small {
+          color: #666;
+          display: block;
+          line-height: 1.45;
+          margin: 0;
+        }
+        .btn-secondary,
+        .btn-danger {
+          border: 1px solid #d0d0d0;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+          min-height: 38px;
+          padding: 0 14px;
+        }
+        .btn-secondary {
+          background: #fff;
+          color: #333;
+        }
+        .btn-danger {
+          background: #fff5f5;
+          border-color: #ffc7c7;
+          color: #a01818;
+        }
+        button:disabled {
+          cursor: wait;
+          opacity: 0.65;
+        }
+        @media (max-width: 760px) {
+          .memory-toolbar {
+            grid-template-columns: 1fr;
+          }
+          .memory-row {
+            flex-direction: column;
+          }
+        }
+      `}</style>
+    </section>
+  );
+};
 
 const NewsSection: React.FC<{ settings: Settings; updateSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void }> = ({ settings, updateSetting }) => (
   <section className="settings-section">

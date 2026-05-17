@@ -138,6 +138,15 @@ function assertPopupResponseHardening() {
   assert(source.includes('personal-memory'), 'popup must expose the personal memory query flow');
 }
 
+function assertSettingsMemoryPrivacySurface() {
+  const source = fs.readFileSync(path.join(extensionDir, 'ui/src/settings/SettingsPage.tsx'), 'utf8');
+  assert(source.includes("'memory'"), 'settings must include a memory privacy section');
+  assert(source.includes('search-memory'), 'memory settings must list/search local memory');
+  assert(source.includes('delete-memory'), 'memory settings must delete individual memory items');
+  assert(source.includes('clear-memory'), 'memory settings must clear source-specific memory clusters');
+  assert(source.includes('export-memory'), 'memory settings must export local memory');
+}
+
 async function assertPersonalMemorySkill() {
   const storage = {
     suya_ah_projects: {
@@ -237,6 +246,21 @@ async function assertPersonalMemorySkill() {
     const related = await skill.handleAction('find-more-like-this', { text: 'startup accelerator research' });
     assert.strictEqual(related.success, true, 'related memory lookup should work from text');
 
+    const exported = await skill.handleAction('export-memory');
+    assert.strictEqual(exported.success, true, 'memory export should succeed');
+    assert(exported.entries.length >= 2, 'memory export should include indexed memory entries');
+
+    const listed = await skill.handleAction('search-memory', { query: '', limit: 10 });
+    const formMemory = listed.results.find(item => item.sourceType === 'form_fill');
+    assert(formMemory, 'memory search should list form-fill entries for deletion controls');
+    const deleted = await skill.handleAction('delete-memory', { id: formMemory.id });
+    assert.strictEqual(deleted.deleted, 1, 'individual memory items should be deletable');
+
+    const cleared = await skill.handleAction('clear-memory', { sourceType: 'browser_history' });
+    assert.strictEqual(cleared.success, true, 'source-specific memory clearing should succeed');
+    const afterClear = await skill.handleAction('search-memory', { query: '', limit: 10 });
+    assert(!afterClear.results.some(item => item.sourceType === 'browser_history'), 'cleared source memory must not remain searchable');
+
     const dream = await skill.handleAction('create-dream', {
       title: 'Accelerator Dream',
       query: 'accelerator'
@@ -262,6 +286,7 @@ async function main() {
   await assertSecurityManagerValidation();
   assertBackgroundMessageRouter();
   assertPopupResponseHardening();
+  assertSettingsMemoryPrivacySurface();
   await assertPersonalMemorySkill();
   console.log('All extension production-readiness checks passed.');
 }
