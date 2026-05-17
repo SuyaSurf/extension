@@ -112,6 +112,25 @@ const HistoryAnalysisStep: React.FC<HistoryAnalysisStepProps> = ({
     setManualSelected(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; });
 
   const finish = () => {
+    if (manualSelected.size > 0) {
+      const selectedCategories = Array.from(manualSelected);
+      const manualInterests = selectedCategories.reduce<Record<string, InterestData[]>>((acc, category) => {
+        acc[category] = [];
+        return acc;
+      }, {});
+
+      updateUserProfile({
+        interests: manualInterests,
+        contentTypes: selectedCategories,
+        patterns: {
+          mostVisitedDomains: [],
+          peakActivityHours: [],
+          contentPreferences: selectedCategories,
+          sessionDuration: 0,
+        },
+      });
+    }
+
     completeStep('history-analysis');
     guideStep('happy', "Great! Now let's sharpen your growth goals.");
     nextStep();

@@ -150,7 +150,8 @@ class ExtensionBuilder {
           'skills/qa-testing/*',
           ...dynamicResourceGlobs,
           'content-script/*',
-          'ui/review-scheduler.html'
+          'ui/review-scheduler.html',
+          'ui/review-scheduler.js'
         ],
         matches: ['http://*/*', 'https://*/*']
       }
@@ -221,6 +222,14 @@ class ExtensionBuilder {
       fs.mkdirSync(path.dirname(reviewSchedulerDest), { recursive: true });
       fs.copyFileSync(reviewSchedulerSrc, reviewSchedulerDest);
       console.log('  ✓ Copied review scheduler HTML');
+    }
+
+    const reviewSchedulerScriptSrc = path.join(this.extensionDir, 'ui', 'review-scheduler.js');
+    const reviewSchedulerScriptDest = path.join(this.buildDir, 'ui', 'review-scheduler.js');
+    if (fs.existsSync(reviewSchedulerScriptSrc)) {
+      fs.mkdirSync(path.dirname(reviewSchedulerScriptDest), { recursive: true });
+      fs.copyFileSync(reviewSchedulerScriptSrc, reviewSchedulerScriptDest);
+      console.log('  ✓ Copied review scheduler JS');
     }
 
     // Copy offscreen JS (the one we created)

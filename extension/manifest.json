@@ -118,7 +118,8 @@
         "vendors/*",
         "common/*",
         "content-script/*",
-        "ui/review-scheduler.html"
+        "ui/review-scheduler.html",
+        "ui/review-scheduler.js"
       ],
       "matches": ["http://*/*", "https://*/*"]
     }
