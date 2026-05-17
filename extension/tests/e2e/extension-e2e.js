@@ -130,7 +130,7 @@ async function main() {
     attachPageDiagnostics(settingsPage, 'settings');
     await settingsPage.waitForLoadState('domcontentloaded');
     await settingsPage.waitForSelector('.settings-page', { timeout: 10000 });
-    for (const label of ['Skills', 'API Keys', 'Notifications']) {
+    for (const label of ['Skills', 'API Keys', 'Notifications', 'Memory']) {
       await settingsPage.getByRole('button', { name: new RegExp(label, 'i') }).click();
     }
 
