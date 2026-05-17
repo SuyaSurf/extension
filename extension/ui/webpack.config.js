@@ -15,7 +15,9 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, '../dist'),
       filename: '[name]/[name].bundle.js',
-      clean: false
+      chunkFilename: 'chunks/[name].[contenthash:8].bundle.js',
+      publicPath: '../',
+      clean: true
     },
     module: {
       rules: [
@@ -54,21 +56,21 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: '../popup/popup.html',
-        filename: '../popup/popup.html',
+        template: './src/popup/popup.template.html',
+        filename: 'popup/popup.html',
         chunks: ['popup'],
-        publicPath: './',
+        publicPath: '../',
         minify: false
       }),
       new HtmlWebpackPlugin({
         template: './src/offscreen/offscreen.html',
-        filename: '../offscreen/offscreen.html',
+        filename: 'offscreen/offscreen.html',
         chunks: ['offscreen'],
-        publicPath: './'
+        publicPath: '../'
       }),
       new HtmlWebpackPlugin({
         template: './src/newtab/newtab.template.html',
-        filename: '../newtab/newtab.html',
+        filename: 'newtab/newtab.html',
         chunks: ['newtab'],
         inject: 'body',
         scriptLoading: 'defer',
@@ -77,7 +79,7 @@ module.exports = (env, argv) => {
       }),
       new HtmlWebpackPlugin({
         template: './src/settings/settings.template.html',
-        filename: '../settings/settings.html',
+        filename: 'settings/settings.html',
         chunks: ['settings'],
         inject: 'body',
         scriptLoading: 'defer',
@@ -92,7 +94,15 @@ module.exports = (env, argv) => {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendors',
-            chunks: 'all'
+            chunks: 'all',
+            priority: 20
+          },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'all',
+            priority: 10,
+            reuseExistingChunk: true
           }
         }
       }

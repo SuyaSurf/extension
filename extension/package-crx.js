@@ -17,7 +17,7 @@ class CRXPackager {
   }
 
   async package() {
-    console.log('📦 Packaging Chrome Extension as CRX...');
+    console.log('📦 Packaging Chrome Extension...');
     
     try {
       // Ensure build exists
@@ -28,22 +28,20 @@ class CRXPackager {
       // Create output directory
       fs.mkdirSync(this.outputDir, { recursive: true });
       
-      // Generate private key if it doesn't exist
-      await this.generatePrivateKey();
-      
       // Create ZIP archive
       const zipPath = await this.createZip();
-      
-      // Generate CRX
-      const crxPath = await this.createCRX(zipPath);
-      
-      // Generate update manifest
-      await this.generateUpdateManifest(crxPath);
-      
-      console.log('✅ CRX package created successfully!');
-      console.log(`📁 CRX file: ${crxPath}`);
-      console.log(`🔑 Private key: ${this.privateKeyPath}`);
-      console.log(`📋 Update manifest: ${path.join(this.outputDir, 'updates.xml')}`);
+
+      if (process.env.SUYASURF_BUILD_CRX === '1') {
+        await this.generatePrivateKey();
+        const crxPath = await this.createCRX(zipPath);
+        await this.generateUpdateManifest(crxPath);
+        console.log(`📁 CRX file: ${crxPath}`);
+        console.log(`🔑 Private key: ${this.privateKeyPath}`);
+        console.log(`📋 Update manifest: ${path.join(this.outputDir, 'updates.xml')}`);
+      }
+
+      console.log('✅ Extension package created successfully!');
+      console.log(`📁 Chrome Web Store ZIP: ${zipPath}`);
       
     } catch (error) {
       console.error('❌ Packaging failed:', error.message);
@@ -55,9 +53,9 @@ class CRXPackager {
     if (!fs.existsSync(this.privateKeyPath)) {
       console.log('🔑 Generating private key...');
       
-      const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+      const { privateKey } = crypto.generateKeyPairSync('rsa', {
         modulusLength: 2048,
-        publicKeyEncoding: { type: spki, format: 'pem' },
+        publicKeyEncoding: { type: 'spki', format: 'pem' },
         privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
       });
       
@@ -71,7 +69,10 @@ class CRXPackager {
   async createZip() {
     console.log('🗜️  Creating ZIP archive...');
     
-    const zipPath = path.join(this.outputDir, 'extension.zip');
+    const manifest = JSON.parse(fs.readFileSync(path.join(this.buildDir, 'manifest.json'), 'utf8'));
+    const zipPath = path.join(this.outputDir, `suyasurf-extension-v${manifest.version}.zip`);
+    const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+    const archiveDate = sourceDateEpoch ? new Date(Number(sourceDateEpoch) * 1000) : new Date(0);
     
     // Use Node.js built-in compression or external tool
     // For simplicity, we'll use a basic approach
@@ -88,8 +89,13 @@ class CRXPackager {
       archive.on('error', reject);
       archive.pipe(output);
       
-      // Add all files from build directory
-      archive.directory(this.buildDir, false);
+      for (const file of this.getBuildFiles()) {
+        archive.file(path.join(this.buildDir, file), {
+          name: file,
+          date: archiveDate,
+          mode: 0o644
+        });
+      }
       archive.finalize();
     });
   }
@@ -172,17 +178,28 @@ class CRXPackager {
     const publicKeyDER = publicKey.export({ type: 'DER', format: 'SPKI' });
     
     const hash = crypto.createHash('sha256').update(publicKeyDER).digest();
-    const hashHex = hash.toString('hex').substring(0, 32);
-    
-    // Convert to Chrome's 32-character app ID format
+    const first128Bits = hash.subarray(0, 16);
+
     let appID = '';
-    for (let i = 0; i < hashHex.length; i += 2) {
-      const byte = parseInt(hashHex.substr(i, 2), 16);
-      const char = String.fromCharCode(byte + 'a'.charCodeAt(0));
-      appID += char;
+    for (const byte of first128Bits) {
+      appID += String.fromCharCode('a'.charCodeAt(0) + (byte >> 4));
+      appID += String.fromCharCode('a'.charCodeAt(0) + (byte & 0x0f));
     }
     
     return appID;
+  }
+
+  getBuildFiles(dir = this.buildDir, prefix = '') {
+    return fs.readdirSync(dir)
+      .sort()
+      .flatMap(file => {
+        const absolutePath = path.join(dir, file);
+        const relativePath = path.join(prefix, file).replace(/\\/g, '/');
+        const stat = fs.statSync(absolutePath);
+        return stat.isDirectory()
+          ? this.getBuildFiles(absolutePath, relativePath)
+          : [relativePath];
+      });
   }
 }
 

@@ -91,6 +91,70 @@ class ExtensionBuilder {
     const manifestPath = path.join(this.buildDir, 'manifest.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const googleClientId = process.env.SUYASURF_GOOGLE_CLIENT_ID;
+    const distFiles = fs.existsSync(this.distDir)
+      ? this.getAllFiles(this.distDir, [], this.distDir).map(file => file.replace(/\\/g, '/'))
+      : [];
+    const contentScriptMatches = [
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+      'https://*.gmail.com/*',
+      'https://mail.google.com/*',
+      'https://*.outlook.com/*',
+      'https://*.venmail.com/*',
+      'https://web.whatsapp.com/*',
+      'https://web.telegram.org/*',
+      'https://docs.google.com/*',
+      'https://slides.google.com/*',
+      'https://*.youtube.com/*',
+      'https://rsvp.withgoogle.com/*'
+    ];
+    const initialContentScriptBundles = [
+      'vendors/vendors.bundle.js',
+      'common/common.bundle.js',
+      ...distFiles.filter(file => /^\d+\/[^/]+\.bundle\.js$/.test(file)),
+      'content-script/content-script.bundle.js'
+    ].filter((file, index, list) => distFiles.includes(file) && list.indexOf(file) === index);
+
+    if (!initialContentScriptBundles.includes('content-script/content-script.bundle.js')) {
+      throw new Error('UI build is missing content-script/content-script.bundle.js. Run npm run build:ui first.');
+    }
+
+    manifest.content_scripts = [
+      {
+        matches: contentScriptMatches,
+        js: ['content-scripts/universal-handler.js'],
+        run_at: 'document_idle'
+      },
+      {
+        matches: contentScriptMatches,
+        js: initialContentScriptBundles,
+        run_at: 'document_idle'
+      }
+    ];
+
+    const dynamicResourceGlobs = Array.from(new Set(
+      distFiles
+        .map(file => file.split('/')[0])
+        .filter(dir => dir && !['popup', 'newtab', 'settings', 'offscreen', 'content-script'].includes(dir))
+        .map(dir => `${dir}/*`)
+    ));
+
+    manifest.web_accessible_resources = [
+      {
+        resources: [
+          'assets/*',
+          'shared/*',
+          'shared/*/*',
+          'skills/application-writing/*',
+          'skills/application-writing/utils/*',
+          'skills/qa-testing/*',
+          ...dynamicResourceGlobs,
+          'content-script/*',
+          'ui/review-scheduler.html'
+        ],
+        matches: ['http://*/*', 'https://*/*']
+      }
+    ];
 
     if (googleClientId) {
       if (!/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/.test(googleClientId)) {
@@ -142,68 +206,21 @@ class ExtensionBuilder {
       console.log('  ✓ Copied content scripts');
     }
 
-    // Copy popup HTML
-    const popupSrc = path.join(this.extensionDir, 'popup', 'popup-fixed.html');
-    const popupDest = path.join(this.buildDir, 'popup', 'popup.html');
-    
-    if (fs.existsSync(popupSrc)) {
-      fs.mkdirSync(path.dirname(popupDest), { recursive: true });
-      fs.copyFileSync(popupSrc, popupDest);
-      console.log('  ✓ Copied popup HTML');
+    for (const htmlFile of ['popup/popup.html', 'offscreen/offscreen.html', 'newtab/newtab.html', 'settings/settings.html']) {
+      if (!fs.existsSync(path.join(this.buildDir, htmlFile))) {
+        throw new Error(`UI build is missing ${htmlFile}. Run npm run build:ui first.`);
+      }
     }
 
-    // Copy offscreen HTML
-    const offscreenSrc = path.join(this.extensionDir, 'offscreen', 'offscreen.html');
-    const offscreenDest = path.join(this.buildDir, 'offscreen', 'offscreen.html');
-    
-    if (fs.existsSync(offscreenSrc)) {
-      fs.mkdirSync(path.dirname(offscreenDest), { recursive: true });
-      fs.copyFileSync(offscreenSrc, offscreenDest);
-      console.log('  ✓ Copied offscreen HTML');
-    }
+    console.log('  ✓ Copied generated extension HTML');
 
-    // Copy newtab HTML
-    const newtabSrc = path.join(this.extensionDir, 'newtab', 'newtab.html');
-    const newtabDest = path.join(this.buildDir, 'newtab', 'newtab.html');
-    
-    if (fs.existsSync(newtabSrc)) {
-      fs.mkdirSync(path.dirname(newtabDest), { recursive: true });
-      let content = fs.readFileSync(newtabSrc, 'utf8');
-      // Fix script paths for newtab directory (go up to extension root)
-      content = content.replace(
-        /<script defer src="vendors\//g, 
-        '<script defer src="../vendors/'
-      );
-      content = content.replace(
-        /<script defer src="698\//g, 
-        '<script defer src="../698/'
-      );
-      content = content.replace(
-        /<script defer src="newtab\//g, 
-        '<script defer src="'
-      );
-      fs.writeFileSync(newtabDest, content);
-      console.log('  ✓ Copied newtab HTML');
-    }
-
-    // Copy settings HTML
-    const settingsSrc = path.join(this.extensionDir, 'settings', 'settings.html');
-    const settingsDest = path.join(this.buildDir, 'settings', 'settings.html');
-    
-    if (fs.existsSync(settingsSrc)) {
-      fs.mkdirSync(path.dirname(settingsDest), { recursive: true });
-      let content = fs.readFileSync(settingsSrc, 'utf8');
-      // Fix script paths for settings directory (go up to extension root)
-      content = content.replace(
-        /<script defer src="vendors\//g, 
-        '<script defer src="../vendors/'
-      );
-      content = content.replace(
-        /<script defer src="settings\//g, 
-        '<script defer src="'
-      );
-      fs.writeFileSync(settingsDest, content);
-      console.log('  ✓ Copied settings HTML');
+    // Copy review scheduler page referenced by QA/review flows.
+    const reviewSchedulerSrc = path.join(this.extensionDir, 'ui', 'review-scheduler.html');
+    const reviewSchedulerDest = path.join(this.buildDir, 'ui', 'review-scheduler.html');
+    if (fs.existsSync(reviewSchedulerSrc)) {
+      fs.mkdirSync(path.dirname(reviewSchedulerDest), { recursive: true });
+      fs.copyFileSync(reviewSchedulerSrc, reviewSchedulerDest);
+      console.log('  ✓ Copied review scheduler HTML');
     }
 
     // Copy offscreen JS (the one we created)
@@ -312,9 +329,15 @@ class ExtensionBuilder {
 
   async generateBuildInfo() {
     console.log('📊 Generating build info...');
+    const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+    const buildTime = sourceDateEpoch
+      ? new Date(Number(sourceDateEpoch) * 1000).toISOString()
+      : new Date().toISOString();
     
     const buildInfo = {
-      buildTime: new Date().toISOString(),
+      buildTime,
+      sourceDateEpoch: sourceDateEpoch || null,
+      gitCommit: this.getGitCommit(),
       version: '1.0.0',
       manifest: JSON.parse(fs.readFileSync(path.join(this.buildDir, 'manifest.json'), 'utf8')),
       files: this.getAllFiles(this.buildDir)
@@ -345,7 +368,7 @@ class ExtensionBuilder {
     }
   }
 
-  getAllFiles(dir, fileList = []) {
+  getAllFiles(dir, fileList = [], baseDir = this.buildDir) {
     const files = fs.readdirSync(dir);
     
     for (const file of files) {
@@ -353,13 +376,25 @@ class ExtensionBuilder {
       const stat = fs.statSync(filePath);
       
       if (stat.isDirectory()) {
-        this.getAllFiles(filePath, fileList);
+        this.getAllFiles(filePath, fileList, baseDir);
       } else {
-        fileList.push(path.relative(this.buildDir, filePath));
+        fileList.push(path.relative(baseDir, filePath));
       }
     }
     
     return fileList;
+  }
+
+  getGitCommit() {
+    try {
+      return execSync('git rev-parse HEAD', {
+        cwd: this.extensionDir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).trim();
+    } catch {
+      return null;
+    }
   }
 }
 

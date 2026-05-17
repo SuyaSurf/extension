@@ -10,30 +10,27 @@
     "tabs",
     "activeTab",
     "scripting",
-    "background",
     "offscreen",
     "downloads",
-    "clipboardRead",
     "clipboardWrite",
     "notifications",
-    "desktopCapture",
     "tabCapture",
-    "cookies",
-    "webNavigation",
     "contextMenus",
     "identity"
   ],
   
   "host_permissions": [
-    "*://*.google.com/*",
-    "*://*.gmail.com/*",
-    "*://*.outlook.com/*",
-    "*://*.venmail.com/*",
-    "*://*.telegram.org/*",
-    "*://*.web.whatsapp.com/*",
-    "*://*.docs.google.com/*",
-    "*://*.slides.google.com/*",
-    "*://*.youtube.com/*",
+    "https://*.gmail.com/*",
+    "https://mail.google.com/*",
+    "https://*.outlook.com/*",
+    "https://*.venmail.com/*",
+    "https://web.telegram.org/*",
+    "https://web.whatsapp.com/*",
+    "https://docs.google.com/*",
+    "https://slides.google.com/*",
+    "https://youtube.com/*",
+    "https://*.youtube.com/*",
+    "https://rsvp.withgoogle.com/*",
     "https://gmail.googleapis.com/*",
     "https://www.googleapis.com/*",
     "https://api.openai.com/*",
@@ -52,15 +49,41 @@
   
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*.gmail.com/*",
+        "https://mail.google.com/*",
+        "https://*.outlook.com/*",
+        "https://*.venmail.com/*",
+        "https://web.whatsapp.com/*",
+        "https://web.telegram.org/*",
+        "https://docs.google.com/*",
+        "https://slides.google.com/*",
+        "https://*.youtube.com/*",
+        "https://rsvp.withgoogle.com/*"
+      ],
       "js": ["content-scripts/universal-handler.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*.gmail.com/*",
+        "https://mail.google.com/*",
+        "https://*.outlook.com/*",
+        "https://*.venmail.com/*",
+        "https://web.whatsapp.com/*",
+        "https://web.telegram.org/*",
+        "https://docs.google.com/*",
+        "https://slides.google.com/*",
+        "https://*.youtube.com/*",
+        "https://rsvp.withgoogle.com/*"
+      ],
       "js": [
         "vendors/vendors.bundle.js",
-        "695/695.bundle.js",
+        "common/common.bundle.js",
         "content-script/content-script.bundle.js"
       ],
       "run_at": "document_idle"
@@ -87,18 +110,17 @@
       "resources": [
         "assets/*",
         "shared/*",
+        "shared/*/*",
         "skills/application-writing/*",
+        "skills/application-writing/utils/*",
         "skills/qa-testing/*",
+        "chunks/*",
         "vendors/*",
-        "698/*",
-        "newtab/*",
-        "settings/*",
+        "common/*",
         "content-script/*",
-        "popup/*",
-        "offscreen/*",
         "ui/review-scheduler.html"
       ],
-      "matches": ["<all_urls>"]
+      "matches": ["http://*/*", "https://*/*"]
     }
   ],
   

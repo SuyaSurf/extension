@@ -18,16 +18,92 @@ interface FormStatus {
   lastScan: number;
 }
 
+type SkillResponse<T extends Record<string, any> = Record<string, any>> = {
+  success?: boolean;
+  error?: string;
+  data?: T;
+} & Record<string, any>;
+
+const CONTENT_SCRIPT_FILES = [
+  'content-scripts/universal-handler.js',
+  'vendors/vendors.bundle.js',
+  'common/common.bundle.js',
+  'content-script/content-script.bundle.js'
+];
+
+const getSkillPayload = <T extends Record<string, any>>(response: SkillResponse<T> | null | undefined): T | null => {
+  if (!response || response.success === false) {
+    return null;
+  }
+
+  return (response.data && typeof response.data === 'object' ? response.data : response) as T;
+};
+
+const isReceivingEndError = (error: unknown) => (
+  error instanceof Error && /receiving end|could not establish connection/i.test(error.message)
+);
+
+const getOriginPattern = (url?: string): string | null => {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null;
+    }
+
+    return `${parsed.protocol}//${parsed.hostname}/*`;
+  } catch {
+    return null;
+  }
+};
+
+const ensureContentScriptAccess = async (tab: chrome.tabs.Tab) => {
+  const origin = getOriginPattern(tab.url);
+  if (!origin) {
+    return;
+  }
+
+  const hasAccess = await chrome.permissions.contains({ origins: [origin] }).catch(() => false);
+  if (hasAccess) {
+    return;
+  }
+
+  const granted = await chrome.permissions.request({ origins: [origin] }).catch(() => false);
+  if (!granted) {
+    throw new Error('Host access is required to run Suya on this page.');
+  }
+};
+
+const injectContentScripts = async (tabId: number) => {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: CONTENT_SCRIPT_FILES
+  });
+};
+
 const sendCommandToActiveTab = async (command: PopupCommand) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
     throw new Error('No active tab available');
   }
 
-  return chrome.tabs.sendMessage(tab.id, {
+  const message = {
     type: 'suya-popup-command',
     command
-  });
+  };
+
+  try {
+    return await chrome.tabs.sendMessage(tab.id, message);
+  } catch (error) {
+    if (!isReceivingEndError(error)) {
+      throw error;
+    }
+
+    await ensureContentScriptAccess(tab);
+    await injectContentScripts(tab.id);
+    return chrome.tabs.sendMessage(tab.id, message);
+  }
 };
 
 const SimplePopup: React.FC = () => {
@@ -59,16 +135,24 @@ const SimplePopup: React.FC = () => {
         action: 'getProfiles',
         data: {}
       });
-      
-      if (response.success) {
-        const profilesData = response.profiles.profiles || [];
-        const activeProfile = response.profiles.activeProfile;
-        
+
+      const payload = getSkillPayload<{
+        profiles?: Profile[] | { profiles?: Profile[]; activeProfile?: Profile | null };
+        activeProfile?: Profile | null;
+      }>(response);
+
+      if (payload) {
+        const profileContainer = payload.profiles;
+        const profilesData = Array.isArray(profileContainer)
+          ? profileContainer
+          : profileContainer?.profiles || [];
+        const activeProfile = payload.activeProfile ?? (!Array.isArray(profileContainer) ? profileContainer?.activeProfile : null) ?? null;
+
         setProfiles(profilesData);
         setCurrentProfile(activeProfile);
       }
     } catch (error) {
-      console.error('Failed to load profiles:', error);
+      console.warn('Failed to load profiles:', error);
     }
   };
 
@@ -80,17 +164,25 @@ const SimplePopup: React.FC = () => {
         action: 'getStatus',
         data: {}
       });
-      
-      if (response.success) {
+
+      const payload = getSkillPayload<{
+        hasForms?: boolean;
+        detectedForms?: number;
+        formCount?: number;
+        fillableFields?: number;
+      }>(response);
+
+      if (payload) {
+        const formCount = Number(payload.detectedForms ?? payload.formCount ?? 0);
         setFormStatus({
-          hasForms: response.hasForms,
-          formCount: response.detectedForms,
-          fillableFields: response.detectedForms,
+          hasForms: Boolean(payload.hasForms || formCount > 0),
+          formCount,
+          fillableFields: Number(payload.fillableFields ?? formCount),
           lastScan: Date.now()
         });
       }
     } catch (error) {
-      console.error('Failed to check form status:', error);
+      console.warn('Failed to check form status:', error);
     }
   };
 
@@ -103,7 +195,7 @@ const SimplePopup: React.FC = () => {
         data: { profileId }
       });
       
-      if (response.success) {
+      if (response?.success !== false) {
         await loadProfiles();
         setShowProfileSwitcher(false);
         setStatusMessage(`Switched to profile: ${currentProfile?.name}`);

@@ -2,29 +2,9 @@ import React, { useState, useEffect } from 'react';
 import NewsSection from './sections/NewsSection';
 import NotificationsSection from './sections/NotificationsSection';
 import QuickActionsSection from './sections/QuickActionsSection';
-import OnboardingFlow from '@/onboarding/OnboardingFlow';
 
 const NewTabPage: React.FC = () => {
-  // null = still checking storage
-  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      try {
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-          const { hasSeenOnboarding } = await chrome.storage.local.get(['hasSeenOnboarding']);
-          setShowOnboarding(!hasSeenOnboarding);
-        } else {
-          const seen = localStorage.getItem('hasSeenOnboarding');
-          setShowOnboarding(!seen);
-        }
-      } catch {
-        setShowOnboarding(false);
-      }
-    };
-    checkOnboarding();
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -47,8 +27,12 @@ const NewTabPage: React.FC = () => {
     });
   };
 
-  if (showOnboarding === null) return null; // loading storage check
-  if (showOnboarding) return <OnboardingFlow onComplete={() => setShowOnboarding(false)} />;
+  const openSettings = async () => {
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL('settings/settings.html'),
+      active: true
+    });
+  };
 
   return (
     <div className="newtab-container">
@@ -62,7 +46,7 @@ const NewTabPage: React.FC = () => {
         </div>
         <button 
           className="settings-btn"
-          onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') })}
+          onClick={() => openSettings().catch(console.error)}
         >
           ⚙️ Settings
         </button>
