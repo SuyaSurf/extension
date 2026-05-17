@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { pathToFileURL } = require('url');
 
 const extensionDir = path.resolve(__dirname, '..');
 const buildDir = path.join(extensionDir, 'build');
@@ -38,6 +39,7 @@ function assertManifestLeastPrivilege(manifest) {
     assert(!manifest.permissions.includes(permission), `manifest must not request unused permission: ${permission}`);
   }
 
+  assert((manifest.optional_permissions || []).includes('history'), 'manifest must request history only as an optional permission');
   assert(!JSON.stringify(manifest).includes('698/'), 'manifest must not reference stale webpack chunk 698');
   assert(!manifest.oauth2?.client_id?.includes('YOUR_'), 'manifest must not ship placeholder OAuth client IDs');
 }
@@ -133,6 +135,124 @@ function assertPopupResponseHardening() {
   assert(source.includes('getSkillPayload'), 'popup must normalize skill responses');
   assert(source.includes('ensureContentScriptAccess'), 'popup must request optional host access before injecting on demand');
   assert(source.includes('isReceivingEndError'), 'popup must recover from missing content-script receivers');
+  assert(source.includes('personal-memory'), 'popup must expose the personal memory query flow');
+}
+
+async function assertPersonalMemorySkill() {
+  const storage = {
+    suya_ah_projects: {
+      proj_1: {
+        id: 'proj_1',
+        name: 'Startup Accelerator Applications',
+        type: 'event_registration',
+        domainGroup: 'accelerator.example',
+        tags: ['accelerator'],
+        recordIds: ['rec_1'],
+        pinnedFields: {},
+        createdAt: Date.now() - 10_000,
+        updatedAt: Date.now() - 5_000
+      }
+    },
+    suya_ah_records: {
+      rec_1: {
+        id: 'rec_1',
+        projectId: 'proj_1',
+        url: 'https://accelerator.example/apply',
+        urlKey: 'https://accelerator.example/apply',
+        formType: 'event_registration',
+        metadata: { title: 'Accelerator application' },
+        filledAt: Date.now() - 4_000,
+        editedFields: [],
+        fields: [
+          { semanticType: 'company', label: 'Company', value: 'Suya Labs', source: 'profile', confidence: 0.9 },
+          { semanticType: 'pitch', label: 'Pitch', value: 'AI assistant for remembered research', source: 'ai', confidence: 0.8 },
+          { semanticType: 'password', label: 'Password', value: 'secret-password', source: 'profile', confidence: 0.9 }
+        ]
+      }
+    },
+    suya_ah_url_index: {}
+  };
+  let historyAllowed = false;
+  const previousChrome = global.chrome;
+
+  global.chrome = {
+    storage: {
+      local: {
+        get: async keys => {
+          if (Array.isArray(keys)) {
+            return keys.reduce((acc, key) => {
+              acc[key] = storage[key];
+              return acc;
+            }, {});
+          }
+          if (typeof keys === 'string') return { [keys]: storage[keys] };
+          return { ...storage };
+        },
+        set: async values => Object.assign(storage, values),
+        remove: async keys => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) delete storage[key];
+        }
+      }
+    },
+    permissions: {
+      contains: async request => historyAllowed && request.permissions.includes('history')
+    },
+    history: {
+      search: async () => [
+        {
+          url: 'https://research.example/startup-accelerator',
+          title: 'Startup accelerator research list',
+          visitCount: 4,
+          lastVisitTime: Date.now() - 2_000
+        }
+      ]
+    }
+  };
+
+  try {
+    const skillPath = pathToFileURL(path.join(extensionDir, 'skills/personal-memory/skill.js')).href;
+    const { PersonalMemorySkill } = await import(`${skillPath}?test=${Date.now()}`);
+    const skill = new PersonalMemorySkill({ config: { historyMaxResults: 10 } });
+
+    await skill.initialize();
+    await skill.activate();
+
+    const denied = await skill.handleAction('index-history');
+    assert.strictEqual(denied.permissionRequired, true, 'history indexing must be gated by optional permission');
+
+    historyAllowed = true;
+    const historyResult = await skill.handleAction('index-history');
+    assert.strictEqual(historyResult.success, true, 'history indexing should succeed once permission exists');
+    assert.strictEqual(historyResult.indexed, 1, 'history index should ingest mocked browser history');
+
+    const formResult = await skill.handleAction('index-form-history');
+    assert.strictEqual(formResult.success, true, 'form history indexing should succeed');
+    assert.strictEqual(formResult.indexed, 1, 'form history index should ingest saved application history');
+
+    const answer = await skill.handleAction('answer-memory-question', { query: 'accelerator remembered research' });
+    assert.strictEqual(answer.success, true, 'memory question should return a successful answer');
+    assert(answer.sources.length > 0, 'memory answer must include cited sources');
+    assert(!JSON.stringify(answer).includes('secret-password'), 'sensitive form fields must not enter memory answers');
+
+    const related = await skill.handleAction('find-more-like-this', { text: 'startup accelerator research' });
+    assert.strictEqual(related.success, true, 'related memory lookup should work from text');
+
+    const dream = await skill.handleAction('create-dream', {
+      title: 'Accelerator Dream',
+      query: 'accelerator'
+    });
+    assert.strictEqual(dream.success, true, 'dream creation should succeed from memory search');
+
+    const iteration = await skill.handleAction('create-dream-iteration', {
+      dreamId: dream.dream.id,
+      variantType: 'application draft',
+      prompt: 'Create a sharper accelerator application direction'
+    });
+    assert.strictEqual(iteration.success, true, 'dream iteration should be created');
+    assert(iteration.iteration.body.includes('Source evidence'), 'dream iteration should retain source grounding');
+  } finally {
+    global.chrome = previousChrome;
+  }
 }
 
 async function main() {
@@ -142,6 +262,7 @@ async function main() {
   await assertSecurityManagerValidation();
   assertBackgroundMessageRouter();
   assertPopupResponseHardening();
+  await assertPersonalMemorySkill();
   console.log('All extension production-readiness checks passed.');
 }
 
