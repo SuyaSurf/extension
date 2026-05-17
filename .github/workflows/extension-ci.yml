@@ -1,0 +1,66 @@
+name: Extension CI
+
+on:
+  pull_request:
+    paths:
+      - 'extension/**'
+      - '.github/workflows/extension-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'extension/**'
+      - '.github/workflows/extension-ci.yml'
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            extension/package-lock.json
+            extension/ui/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: ./extension/ui
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build extension
+        run: npm run build:all
+        env:
+          SOURCE_DATE_EPOCH: '1735689600'
+
+      - name: Run unit and integration checks
+        run: npm test
+
+      - name: Run extension E2E
+        run: xvfb-run -a npm run test:e2e
+
+      - name: Audit extension dependencies
+        run: npm audit --audit-level=high
+
+      - name: Audit UI dependencies
+        run: npm audit --audit-level=high
+        working-directory: ./extension/ui
+
+      - name: Build release package
+        run: node package-crx.js
+        env:
+          SOURCE_DATE_EPOCH: '1735689600'

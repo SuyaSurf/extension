@@ -608,11 +608,10 @@ class ExtensionServiceWorker {
   }
 
   async injectContentScripts(tabId, url) {
-    // Check if URL is allowed for content script injection
-    if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+    if (!(await this.shouldInjectContentScripts(url))) {
       return;
     }
-    
+
     try {
       // Inject universal content script
       await chrome.scripting.executeScript({
@@ -636,6 +635,47 @@ class ExtensionServiceWorker {
     } catch (error) {
       console.error('Error injecting content scripts:', error);
     }
+  }
+
+  async shouldInjectContentScripts(url) {
+    if (!url) {
+      return false;
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+
+    if (this.isBuiltInContentScriptHost(parsed.hostname)) {
+      return true;
+    }
+
+    const origin = `${parsed.protocol}//${parsed.hostname}/*`;
+    return chrome.permissions.contains({ origins: [origin] }).catch(() => false);
+  }
+
+  isBuiltInContentScriptHost(hostname) {
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === 'web.whatsapp.com' ||
+      hostname === 'web.telegram.org' ||
+      hostname === 'docs.google.com' ||
+      hostname === 'slides.google.com' ||
+      hostname === 'rsvp.withgoogle.com' ||
+      hostname === 'mail.google.com' ||
+      hostname.endsWith('.gmail.com') ||
+      hostname.endsWith('.outlook.com') ||
+      hostname.endsWith('.venmail.com') ||
+      hostname.endsWith('.youtube.com')
+    );
   }
 
   handleInitializationError(error) {
