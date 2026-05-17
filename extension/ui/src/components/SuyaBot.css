@@ -13,7 +13,7 @@
   transition: background .4s ease, backdrop-filter .4s ease;
 }
 .suya-overlay.active {
-  pointer-events: auto;
+  pointer-events: none;
   background: rgba(14,5,1,.5);
   backdrop-filter: blur(5px) saturate(.7);
 }

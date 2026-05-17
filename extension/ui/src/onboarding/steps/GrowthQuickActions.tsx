@@ -33,13 +33,25 @@ const BASE_ACTIONS: Action[] = [
 ];
 
 const CAREER_EXTRAS: Record<string, Action[]> = {
+  technology: [
+    { id: 'code-review', icon: '💻', title: 'Code Review',        description: 'AI analysis and improvement suggestions',    handler: 'codeReview',    botMessage: "Let me review your code!",                  color: '#81C784', badges: ['personalised'],  category: 'automation', estimatedTime: '10 min', frequency: 'As needed' },
+    { id: 'tech-trends', icon: '🚀', title: 'Tech Radar',          description: 'Emerging frameworks and technologies',      handler: 'techTrends',    botMessage: "Here's what's emerging in tech!",           color: '#FF9068', badges: ['real-time'],     category: 'analysis',   estimatedTime: '8 min',  frequency: 'Weekly' },
+  ],
   tech_dev: [
     { id: 'code-review', icon: '💻', title: 'Code Review',        description: 'AI analysis and improvement suggestions',    handler: 'codeReview',    botMessage: "Let me review your code!",                  color: '#81C784', badges: ['personalised'],  category: 'automation', estimatedTime: '10 min', frequency: 'As needed' },
     { id: 'tech-trends', icon: '🚀', title: 'Tech Radar',          description: 'Emerging frameworks and technologies',      handler: 'techTrends',    botMessage: "Here's what's emerging in tech!",           color: '#FF9068', badges: ['real-time'],     category: 'analysis',   estimatedTime: '8 min',  frequency: 'Weekly' },
   ],
+  business: [
+    { id: 'market',      icon: '📊', title: 'Market Intelligence', description: 'Business intelligence and market analysis', handler: 'marketInsights',botMessage: "Gathering key market insights for you!",     color: '#4FC3F7', badges: ['data-driven'],   category: 'analysis',   estimatedTime: '12 min', frequency: 'Weekly' },
+    { id: 'strategy',    icon: '♟️', title: 'Strategy Advisor',    description: 'Strategic planning and decision support',   handler: 'strategyAdvisor',botMessage: "Let's work on strategic planning!",       color: '#CE93D8', badges: ['adaptive'],      category: 'learning',   estimatedTime: '20 min', frequency: 'Monthly' },
+  ],
   business_lead: [
     { id: 'market',      icon: '📊', title: 'Market Intelligence', description: 'Business intelligence and market analysis', handler: 'marketInsights',botMessage: "Gathering key market insights for you!",     color: '#4FC3F7', badges: ['data-driven'],   category: 'analysis',   estimatedTime: '12 min', frequency: 'Weekly' },
     { id: 'strategy',    icon: '♟️', title: 'Strategy Advisor',    description: 'Strategic planning and decision support',   handler: 'strategyAdvisor',botMessage: "Let's work on strategic planning!",       color: '#CE93D8', badges: ['adaptive'],      category: 'learning',   estimatedTime: '20 min', frequency: 'Monthly' },
+  ],
+  design: [
+    { id: 'inspiration', icon: '🎨', title: 'Design Inspiration',  description: 'Curated design examples and trends',       handler: 'designInspire', botMessage: "Finding inspiring design examples!",        color: '#FFB74D', badges: ['personalised'],  category: 'daily',      estimatedTime: '5 min',  frequency: 'Daily' },
+    { id: 'ux-audit',    icon: '🔍', title: 'UX Auditor',          description: 'User experience analysis & recommendations',handler: 'uxAudit',       botMessage: "I'll audit UX and suggest improvements!",   color: '#FF9068', badges: ['data-driven'],   category: 'analysis',   estimatedTime: '15 min', frequency: 'As needed' },
   ],
   creative_work: [
     { id: 'inspiration', icon: '🎨', title: 'Design Inspiration',  description: 'Curated design examples and trends',       handler: 'designInspire', botMessage: "Finding inspiring design examples!",        color: '#FFB74D', badges: ['personalised'],  category: 'daily',      estimatedTime: '5 min',  frequency: 'Daily' },

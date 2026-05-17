@@ -110,9 +110,10 @@ const SmartQuestioningStep: React.FC<SmartQuestioningStepProps> = ({
     const update: Partial<UserProfile> = {};
 
     if (qId === 'career_focus') {
-      update.careerFocus = value;
+      const focusDomain = opt?.domains?.[0] ?? value;
+      update.careerFocus = focusDomain;
       if (opt?.domains) update.contentTypes = opt.domains;
-      guideStep('happy', `${opt?.label} — great choice! I'll focus on that domain.`);
+      guideStep('happy', `${opt?.label} — great choice! I'll focus on ${focusDomain}.`);
     } else if (qId === 'growth_goal') {
       update.growthGoal = opt?.strategy;
       guideStep('thinking', `I'll help you ${value} your knowledge and skills.`);
