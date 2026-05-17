@@ -79,7 +79,10 @@ class ExtensionServiceWorker {
     chrome.runtime.onStartup.addListener(this.handleStartup.bind(this));
     
     // Message handling
-    chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => (
+      this.handleRuntimeMessage(request, sender, sendResponse)
+    ));
+    chrome.runtime.onConnect.addListener(this.handlePortConnection.bind(this));
     
     // Alarm handling for scheduled tasks
     chrome.alarms.onAlarm.addListener(this.handleAlarm.bind(this));
@@ -96,72 +99,146 @@ class ExtensionServiceWorker {
     // Storage changes
     chrome.storage.onChanged.addListener(this.handleStorageChange.bind(this));
     
-    // Quick actions from new-tab
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      switch (msg.type) {
-        case 'START_DAILY_BRIEFING':
-          this.handleDailyBriefing(sender).then(sendResponse);
-          return true;
+  }
 
-        case 'FILL_CURRENT_FORM':
-          this.injectFormFiller(sender).then(sendResponse);
-          return true;
+  handleRuntimeMessage(request, sender, sendResponse) {
+    if (!request || typeof request !== 'object') {
+      return false;
+    }
 
-        case 'ANALYZE_CURRENT_PAGE':
-          this.injectPageAnalyzer(sender).then(sendResponse);
-          return true;
+    if (this.handleQuickActionMessage(request, sender, sendResponse)) {
+      return true;
+    }
 
-        case 'START_VOICE':
-          this.toggleVoiceOnActiveTab().then(sendResponse);
-          return true;
+    if (request.action || request.skill) {
+      this.handleMessage(request, sender, sendResponse).catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+      return true;
+    }
 
-        case 'SKILL_GAP_ANALYSIS':
-          this.openSkillGapTab().then(sendResponse);
-          return true;
+    return false;
+  }
 
-        case 'SHOW_TRENDING':
-          this.fetchTrending().then(sendResponse);
-          return true;
+  handleQuickActionMessage(msg, sender, sendResponse) {
+    if (!msg.type) {
+      return false;
+    }
 
-        case 'store-api-key':
-          this.handleStoreApiKey(msg.payload).then(sendResponse);
-          return true;
+    const respondWith = (promise) => {
+      Promise.resolve(promise)
+        .then(sendResponse)
+        .catch(error => sendResponse({ success: false, error: error.message }));
+    };
 
-        case 'remove-api-key':
-          this.handleRemoveApiKey(msg.payload).then(sendResponse);
-          return true;
+    switch (msg.type) {
+      case 'START_DAILY_BRIEFING':
+        respondWith(this.handleDailyBriefing(sender));
+        return true;
 
-        case 'open-review-scheduler':
-          chrome.tabs.create({ 
-            url: chrome.runtime.getURL('ui/review-scheduler.html'),
-            active: true 
-          }).then(tab => {
-            sendResponse({ success: true, tabId: tab.id });
-          }).catch(error => {
-            sendResponse({ success: false, error: error.message });
-          });
-          return true;
+      case 'FILL_CURRENT_FORM':
+        respondWith(this.injectFormFiller(sender));
+        return true;
 
-        case 'MEETING_MEETING_STARTED':
-          chrome.action.setBadgeText({ text: '🔴' });
-          chrome.action.setBadgeBackgroundColor({ color: '#FF4444' });
-          sendResponse({ ok: true });
-          break;
+      case 'ANALYZE_CURRENT_PAGE':
+        respondWith(this.injectPageAnalyzer(sender));
+        return true;
 
-        case 'MEETING_MEETING_SUMMARY_READY':
-          chrome.action.setBadgeText({ text: '' });
-          chrome.storage.local.set({ lastMeetingSummary: msg.summary });
-          sendResponse({ ok: true });
-          break;
+      case 'START_VOICE':
+        respondWith(this.toggleVoiceOnActiveTab());
+        return true;
 
-        case 'BRAIN_GET_DECISIONS':
-          this.getBrainDecisions(msg.payload).then(sendResponse);
-          return true;
+      case 'SKILL_GAP_ANALYSIS':
+        respondWith(this.openSkillGapTab());
+        return true;
 
-        case 'BRAIN_GET_RECOMMENDATIONS':
-          this.getBrainRecommendations().then(sendResponse);
-          return true;
-      }
+      case 'SHOW_TRENDING':
+        respondWith(this.fetchTrending());
+        return true;
+
+      case 'suya-context-update':
+        const context = msg.data || {};
+        this.eventBus.emit('page-context-updated', {
+          context: {
+            url: context.url || null,
+            domain: context.domain || null,
+            type: context.type || null,
+            hasForms: Boolean(context.hasForms),
+            formCount: context.formCount || 0,
+            fillableFields: context.fillableFields || 0,
+            formType: context.formType || null
+          },
+          tabId: sender?.tab?.id || null,
+          frameId: sender?.frameId || null,
+          timestamp: Date.now()
+        });
+        sendResponse({ success: true });
+        return true;
+
+      case 'store-api-key':
+        respondWith(this.handleStoreApiKey(msg.payload));
+        return true;
+
+      case 'remove-api-key':
+        respondWith(this.handleRemoveApiKey(msg.payload));
+        return true;
+
+      case 'open-review-scheduler':
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('ui/review-scheduler.html'),
+          active: true
+        }).then(tab => {
+          sendResponse({ success: true, tabId: tab.id });
+        }).catch(error => {
+          sendResponse({ success: false, error: error.message });
+        });
+        return true;
+
+      case 'MEETING_MEETING_STARTED':
+        chrome.action.setBadgeText({ text: '🔴' });
+        chrome.action.setBadgeBackgroundColor({ color: '#FF4444' });
+        sendResponse({ ok: true });
+        return true;
+
+      case 'MEETING_MEETING_SUMMARY_READY':
+        chrome.action.setBadgeText({ text: '' });
+        chrome.storage.local.set({ lastMeetingSummary: msg.summary });
+        sendResponse({ ok: true });
+        return true;
+
+      case 'BRAIN_GET_DECISIONS':
+        respondWith(this.getBrainDecisions(msg.payload));
+        return true;
+
+      case 'BRAIN_GET_RECOMMENDATIONS':
+        respondWith(this.getBrainRecommendations());
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  handlePortConnection(port) {
+    if (port.name !== 'content-script') {
+      return;
+    }
+
+    port.onMessage.addListener((message) => {
+      this.eventBus.emit('content-script-port-message', {
+        type: message?.type || null,
+        tabId: port.sender?.tab?.id || null,
+        frameId: port.sender?.frameId || null,
+        timestamp: Date.now()
+      });
+    });
+
+    port.onDisconnect.addListener(() => {
+      this.eventBus.emit('content-script-port-disconnected', {
+        tabId: port.sender?.tab?.id || null,
+        frameId: port.sender?.frameId || null,
+        timestamp: Date.now()
+      });
     });
   }
 
@@ -252,10 +329,6 @@ class ExtensionServiceWorker {
       
       const { action, skill, data, messageId } = request;
 
-      if (!action && !skill && request.type) {
-        return false;
-      }
-      
       if (!action || !skill) {
         throw new Error('Missing required fields: action and skill');
       }
@@ -280,11 +353,7 @@ class ExtensionServiceWorker {
       
       // Send response
       if (sendResponse && typeof sendResponse === 'function') {
-        sendResponse({
-          success: true,
-          data: result,
-          messageId: messageId || null
-        });
+        sendResponse(this.createSkillResponse(result, messageId));
       }
       
       // Track performance
@@ -316,6 +385,18 @@ class ExtensionServiceWorker {
       
       return false;
     }
+  }
+
+  createSkillResponse(result, messageId) {
+    const resultObject = result && typeof result === 'object' ? result : {};
+    const hasResultSuccess = Object.prototype.hasOwnProperty.call(resultObject, 'success');
+
+    return {
+      success: hasResultSuccess ? Boolean(resultObject.success) : true,
+      data: result,
+      ...resultObject,
+      messageId: messageId || null
+    };
   }
 
   getRequestAuditMeta(request) {

@@ -949,6 +949,21 @@ export const SuyaBot: React.FC<SuyaBotProps> = ({
         tabIndex={0}
         aria-label="Suya Bot"
       >
+        <span
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0
+          }}
+        >
+          Suya Bot
+        </span>
         {mode === 'sleeping' && (
           <>
             <span className="z-particle z1" aria-hidden>Z</span>
