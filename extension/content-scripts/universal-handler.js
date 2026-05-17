@@ -20,7 +20,8 @@
       // Establish connection with background script
       connectToBackground();
       
-      // Analyze page context
+      // Analyze passive page metadata. Full text extraction is gated behind
+      // explicit user actions so pages are not scanned on load.
       analyzePageContext();
       
       // Set up message listeners
@@ -68,8 +69,22 @@
     }
   }
 
-  function analyzePageContext() {
-    pageContext = {
+  function analyzePageContext(options = {}) {
+    pageContext = buildPageContext(options);
+
+    console.debug('AI Bot Extension: Page context analyzed', {
+      domain: pageContext.domain,
+      type: pageContext.type,
+      featureSummary: pageContext.features,
+      formCount: pageContext.forms.length,
+      textIncluded: pageContext.text.length > 0
+    });
+  }
+
+  function buildPageContext(options = {}) {
+    const includeText = options.includeText === true;
+
+    return {
       url: window.location.href,
       domain: window.location.hostname,
       path: window.location.pathname,
@@ -79,11 +94,9 @@
       elements: scanPageElements(),
       forms: scanForms(),
       media: scanMediaElements(),
-      text: getPageText(),
+      text: includeText ? getPageText() : '',
       language: document.documentElement.lang || 'en'
     };
-    
-    console.log('AI Bot Extension: Page context analyzed:', pageContext);
   }
 
   function detectPageType() {
@@ -162,26 +175,30 @@
 
   function scanPageElements() {
     const elements = {
+      counts: {
+        headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6').length,
+        paragraphs: document.querySelectorAll('p').length,
+        links: document.querySelectorAll('a[href]').length,
+        buttons: document.querySelectorAll('button, input[type="button"], input[type="submit"]').length,
+        inputs: document.querySelectorAll('input, textarea, select').length
+      },
       headings: Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(el => ({
         tag: el.tagName,
-        text: el.textContent?.trim(),
         level: parseInt(el.tagName.substring(1))
       })),
       paragraphs: Array.from(document.querySelectorAll('p')).map(el => ({
-        text: el.textContent?.trim(),
         length: el.textContent?.length || 0
       })),
       links: Array.from(document.querySelectorAll('a[href]')).map(el => ({
-        href: el.href,
-        text: el.textContent?.trim(),
         isExternal: el.hostname !== window.location.hostname
       })),
       buttons: Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]')).map(el => ({
-        text: el.textContent?.trim() || el.value,
         type: el.type,
         disabled: el.disabled
       })),
-      inputs: Array.from(document.querySelectorAll('input, textarea, select')).map(el => ({
+      inputs: Array.from(document.querySelectorAll('input, textarea, select'))
+        .filter(el => !isSensitiveFormElement(el))
+        .map(el => ({
         type: el.type,
         name: el.name,
         placeholder: el.placeholder,
@@ -198,15 +215,30 @@
       action: form.action,
       method: form.method,
       id: form.id,
-      fields: Array.from(form.elements).map(element => ({
+      fields: Array.from(form.elements)
+        .filter(element => !isSensitiveFormElement(element))
+        .map(element => ({
         name: element.name,
         type: element.type,
-        value: element.value,
         placeholder: element.placeholder,
         required: element.required,
         disabled: element.disabled
       }))
     }));
+  }
+
+  function isSensitiveFormElement(element) {
+    const type = String(element.type || '').toLowerCase();
+    const autocomplete = String(element.autocomplete || '').toLowerCase();
+    const name = String(element.name || '').toLowerCase();
+    const id = String(element.id || '').toLowerCase();
+    const placeholder = String(element.placeholder || '').toLowerCase();
+    const combined = `${name} ${id} ${placeholder} ${autocomplete}`;
+
+    return (
+      ['password', 'hidden'].includes(type) ||
+      /password|passwd|pwd|token|secret|api[-_]?key|auth|session|cookie|card|cc-|cvv|cvc|expiry|ssn|social-security/.test(combined)
+    );
   }
 
   function scanMediaElements() {
@@ -733,11 +765,11 @@
   function handleSuyaAction(action) {
     switch (action) {
       case 'analyze-page':
-        sendToBackground('analyze-page', pageContext);
+        sendToBackground('analyze-page', buildPageContext({ includeText: true }));
         showSuyaMessage('Analyzing page...', 'thinking');
         break;
       case 'extract-text':
-        sendToBackground('extract-text', { text: pageContext.text });
+        sendToBackground('extract-text', { text: getPageText() });
         showSuyaMessage('Extracting text content...', 'thinking');
         break;
       case 'highlight-elements':
@@ -956,11 +988,11 @@
     });
     
     document.getElementById('aibot-analyze-page').addEventListener('click', () => {
-      sendToBackground('analyze-page', pageContext);
+      sendToBackground('analyze-page', buildPageContext({ includeText: true }));
     });
     
     document.getElementById('aibot-extract-text').addEventListener('click', () => {
-      sendToBackground('extract-text', { text: pageContext.text });
+      sendToBackground('extract-text', { text: getPageText() });
     });
     
     document.getElementById('aibot-fill-forms').addEventListener('click', () => {

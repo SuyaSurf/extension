@@ -40,22 +40,28 @@ A powerful, modular Chrome extension that implements 15+ AI-powered skills for b
    cd extension/ui
    npm install
    ```
-3. Build the UI:
+3. Build the extension:
    ```bash
-   npm run build
+   cd ..
+   npm run build:all
    ```
 4. Load the extension in Chrome:
    - Open `chrome://extensions/`
    - Enable "Developer mode"
    - Click "Load unpacked"
-   - Select the `extension` directory
+   - Select the `extension/build` directory
 
 ### Production Build
 ```bash
-cd extension/ui
-npm run build
+cd extension
+SUYASURF_GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com" npm run build:all
 ```
-The built files will be in the `extension/dist` directory.
+The loadable unpacked extension will be in the `extension/build` directory.
+
+### Google OAuth
+Gmail and Calendar notifications require a Chrome extension OAuth client ID from Google Cloud Console. Pass it at build time with `SUYASURF_GOOGLE_CLIENT_ID`; the build script injects the client ID and read-only Gmail/Calendar scopes into `build/manifest.json`.
+
+If `SUYASURF_GOOGLE_CLIENT_ID` is not set, the build omits the `oauth2` manifest block instead of shipping a placeholder. Google notification checks will skip token requests and surface a configuration notification in the extension.
 
 ## Usage
 

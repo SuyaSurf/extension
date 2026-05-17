@@ -251,9 +251,20 @@ class ExtensionServiceWorker {
       }
       
       const { action, skill, data, messageId } = request;
+
+      if (!action && !skill && request.type) {
+        return false;
+      }
       
       if (!action || !skill) {
         throw new Error('Missing required fields: action and skill');
+      }
+
+      const validation = await this.securityManager.validateRequest(request, sender);
+      if (!validation.isValid) {
+        const error = new Error(`Request rejected: ${validation.threats.map(t => t.type || t).join(', ')}`);
+        error.validation = validation;
+        throw error;
       }
       
       // Log message for security audit
@@ -291,19 +302,34 @@ class ExtensionServiceWorker {
         sendResponse({
           success: false,
           error: error.message,
-          messageId: request.messageId || null
+          messageId: request?.messageId || null
         });
       }
       
       // Log error for security audit
       await this.securityManager.auditLogger.log('message_error', {
         error: error.message,
-        request: request,
+        request: this.getRequestAuditMeta(request),
+        validation: error.validation || null,
         timestamp: Date.now()
       });
       
       return false;
     }
+  }
+
+  getRequestAuditMeta(request) {
+    if (!request || typeof request !== 'object') {
+      return { validObject: false };
+    }
+
+    return {
+      type: request.type || null,
+      action: request.action || null,
+      skill: request.skill || null,
+      messageId: request.messageId || null,
+      hasData: request.data !== undefined,
+    };
   }
 
   async processRequest(request, sender) {

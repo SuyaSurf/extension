@@ -215,14 +215,20 @@ class SecurityManager {
     validation.threats.push(...contentThreats);
 
     // Check rate limiting
-    if (await this.threatDetector.isRateLimited(sender.id)) {
+    const senderId = this.getSenderId(sender);
+
+    if (await this.threatDetector.isRateLimited(senderId)) {
       validation.isValid = false;
       validation.threats.push('rate_limited');
     }
 
+    if (contentThreats.some(threat => threat.severity === 'high')) {
+      validation.isValid = false;
+    }
+
     // Log validation results
     await this.auditLogger.log('request_validation', {
-      sender: sender.id,
+      sender: senderId,
       request: request.action,
       validation,
       timestamp: Date.now()
@@ -238,6 +244,10 @@ class SecurityManager {
            (sender.url?.startsWith('chrome-extension://') || 
             sender.url?.startsWith('http://localhost') ||
             sender.tab);
+  }
+
+  getSenderId(sender) {
+    return sender?.id || (sender?.tab?.id ? `tab:${sender.tab.id}` : 'unknown');
   }
 
   async sanitizeData(data) {
