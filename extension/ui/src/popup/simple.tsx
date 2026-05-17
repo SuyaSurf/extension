@@ -18,6 +18,20 @@ interface FormStatus {
   lastScan: number;
 }
 
+type SkillResponse<T extends Record<string, any> = Record<string, any>> = {
+  success?: boolean;
+  error?: string;
+  data?: T;
+} & Record<string, any>;
+
+const getSkillPayload = <T extends Record<string, any>>(response: SkillResponse<T> | null | undefined): T | null => {
+  if (!response || response.success === false) {
+    return null;
+  }
+
+  return (response.data && typeof response.data === 'object' ? response.data : response) as T;
+};
+
 const sendCommandToActiveTab = async (command: PopupCommand) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
@@ -59,16 +73,24 @@ const SimplePopup: React.FC = () => {
         action: 'getProfiles',
         data: {}
       });
-      
-      if (response.success) {
-        const profilesData = response.profiles.profiles || [];
-        const activeProfile = response.profiles.activeProfile;
-        
+
+      const payload = getSkillPayload<{
+        profiles?: Profile[] | { profiles?: Profile[]; activeProfile?: Profile | null };
+        activeProfile?: Profile | null;
+      }>(response);
+
+      if (payload) {
+        const profileContainer = payload.profiles;
+        const profilesData = Array.isArray(profileContainer)
+          ? profileContainer
+          : profileContainer?.profiles || [];
+        const activeProfile = payload.activeProfile ?? (!Array.isArray(profileContainer) ? profileContainer?.activeProfile : null) ?? null;
+
         setProfiles(profilesData);
         setCurrentProfile(activeProfile);
       }
     } catch (error) {
-      console.error('Failed to load profiles:', error);
+      console.warn('Failed to load profiles:', error);
     }
   };
 
@@ -80,17 +102,25 @@ const SimplePopup: React.FC = () => {
         action: 'getStatus',
         data: {}
       });
-      
-      if (response.success) {
+
+      const payload = getSkillPayload<{
+        hasForms?: boolean;
+        detectedForms?: number;
+        formCount?: number;
+        fillableFields?: number;
+      }>(response);
+
+      if (payload) {
+        const formCount = Number(payload.detectedForms ?? payload.formCount ?? 0);
         setFormStatus({
-          hasForms: response.hasForms,
-          formCount: response.detectedForms,
-          fillableFields: response.detectedForms,
+          hasForms: Boolean(payload.hasForms || formCount > 0),
+          formCount,
+          fillableFields: Number(payload.fillableFields ?? formCount),
           lastScan: Date.now()
         });
       }
     } catch (error) {
-      console.error('Failed to check form status:', error);
+      console.warn('Failed to check form status:', error);
     }
   };
 
@@ -103,7 +133,7 @@ const SimplePopup: React.FC = () => {
         data: { profileId }
       });
       
-      if (response.success) {
+      if (response?.success !== false) {
         await loadProfiles();
         setShowProfileSwitcher(false);
         setStatusMessage(`Switched to profile: ${currentProfile?.name}`);

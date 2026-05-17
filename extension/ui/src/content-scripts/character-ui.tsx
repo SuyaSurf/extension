@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 import ReactDOM from 'react-dom/client'
 import SuyaBot, { SuyaMode } from '@/components/SuyaBot'
 
@@ -301,6 +301,8 @@ const CharacterRuntime: React.FC = () => {
       chrome.runtime.sendMessage({
         type: 'suya-context-update',
         data: context
+      }).catch(() => {
+        // Context updates are best-effort; the page UI should not surface routing noise.
       })
     } catch {
       // ignore best-effort messaging failures
@@ -1005,6 +1007,79 @@ const CharacterRuntime: React.FC = () => {
     }, 2000)
   }, [])
 
+  const handleCharacterMessage = React.useCallback((event: Event) => {
+    const customEvent = event as CustomEvent
+    const { message, mode, isThinkingHard, isShocked, isBusy, actions, results } = customEvent.detail
+
+    setMessage(message)
+    if (mode) setMode(mode)
+    setIsThinkingHard(isThinkingHard || false)
+    setIsShocked(isShocked || false)
+    setIsBusy(isBusy || false)
+
+    if (actions && Array.isArray(actions)) {
+      const botResults = actions.map((action: any, index: number) => ({
+        id: `bot-action-${index}`,
+        type: 'action' as const,
+        content: action.description || message,
+        actions: [{
+          label: action.label || 'Execute',
+          action: () => {
+            if (action.handler && typeof action.handler === 'function') {
+              action.handler()
+            } else if (action.type === 'copy') {
+              navigator.clipboard.writeText(message || '')
+            } else if (action.type === 'followup') {
+              const inputInterface = document.querySelector('.suya-input-interface textarea') as HTMLTextAreaElement
+              if (inputInterface) {
+                inputInterface.focus()
+                inputInterface.value = action.prompt || 'Tell me more...'
+                inputInterface.dispatchEvent(new Event('input', { bubbles: true }))
+              }
+            }
+          },
+          variant: action.variant || 'primary'
+        }]
+      }))
+
+      window.dispatchEvent(new CustomEvent('suya-bot-response', {
+        detail: { results: botResults }
+      }))
+    }
+
+    if (results && Array.isArray(results)) {
+      window.dispatchEvent(new CustomEvent('suya-bot-response', {
+        detail: { results }
+      }))
+    }
+  }, [])
+
+  const handleBotInput = React.useCallback(async (event: Event) => {
+    const customEvent = event as CustomEvent
+    const { message, isVoice } = customEvent.detail
+
+    try {
+      const skillRegistry = (window as any).skillRegistry
+      const chatSkill = skillRegistry?.getSkill?.('chat-skills')
+
+      if (chatSkill) {
+        await chatSkill.handleAction('processBotInput', { message, isVoice })
+      } else if (window.CharacterMessenger) {
+        await window.CharacterMessenger.sendMessage(message, {
+          mode: 'thinking',
+          isThinkingHard: true
+        })
+      }
+    } catch (error) {
+      console.error('Bot input processing failed:', error)
+      if (window.CharacterMessenger) {
+        await window.CharacterMessenger.sendMessage('I had trouble processing that. Please try again.', {
+          isShocked: true
+        })
+      }
+    }
+  }, [])
+
   React.useEffect(() => {
     const handleRuntimeMessage = (message: RuntimeMessage) => {
       if (message.type === 'suya-popup-command' && message.command) {
@@ -1021,102 +1096,16 @@ const CharacterRuntime: React.FC = () => {
       }
     }
 
-    const handleCharacterMessage = useCallback((event: Event) => {
-      const customEvent = event as CustomEvent
-      const { message, mode, isThinkingHard, isShocked, isBusy, actions, results } = customEvent.detail
-      
-      // Update character state
-      setMessage(message)
-      if (mode) setMode(mode)
-      setIsThinkingHard(isThinkingHard || false)
-      setIsShocked(isShocked || false)
-      setIsBusy(isBusy || false)
-      
-      // Process bot response actions and results
-      if (actions && Array.isArray(actions)) {
-        // Create result objects for the input interface
-        const botResults = actions.map((action: any, index: number) => ({
-          id: `bot-action-${index}`,
-          type: 'action' as const,
-          content: action.description || message,
-          actions: [{
-            label: action.label || 'Execute',
-            action: () => {
-              // Execute the action handler
-              if (action.handler && typeof action.handler === 'function') {
-                action.handler()
-              } else if (action.type === 'copy') {
-                navigator.clipboard.writeText(message || '')
-              } else if (action.type === 'followup') {
-                // Trigger follow-up input
-                const inputInterface = document.querySelector('.suya-input-interface textarea') as HTMLTextAreaElement
-                if (inputInterface) {
-                  inputInterface.focus()
-                  inputInterface.value = action.prompt || 'Tell me more...'
-                  inputInterface.dispatchEvent(new Event('input', { bubbles: true }))
-                }
-              }
-            },
-            variant: action.variant || 'primary'
-          }]
-        }))
-        
-        // Emit event to update input interface with results
-        window.dispatchEvent(new CustomEvent('suya-bot-response', {
-          detail: { results: botResults }
-        }))
-      }
-      
-      // Handle direct results from skills
-      if (results && Array.isArray(results)) {
-        window.dispatchEvent(new CustomEvent('suya-bot-response', {
-          detail: { results }
-        }))
-      }
-    }, [])
-
     chrome.runtime.onMessage.addListener(handleRuntimeMessage)
     window.addEventListener('suya-character-message', handleCharacterMessage)
-    
-    // Listen for bot input events and route to skills
-    const handleBotInput = useCallback(async (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { message, isVoice } = customEvent.detail;
-      
-      try {
-        // Get skill registry and process through chat-skills
-        const skillRegistry = (window as any).skillRegistry;
-        const chatSkill = skillRegistry?.getSkill?.('chat-skills');
-        
-        if (chatSkill) {
-          await chatSkill.handleAction('processBotInput', { message, isVoice });
-        } else {
-          // Fallback: just show the message
-          if (window.CharacterMessenger) {
-            await window.CharacterMessenger.sendMessage(message, {
-              mode: 'thinking',
-              isThinkingHard: true
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Bot input processing failed:', error);
-        if (window.CharacterMessenger) {
-          await window.CharacterMessenger.sendMessage('I had trouble processing that. Please try again.', {
-            isShocked: true
-          });
-        }
-      }
-    }, []);
-    
-    window.addEventListener('suya-bot-input', handleBotInput);
+    window.addEventListener('suya-bot-input', handleBotInput)
     
     return () => {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
       window.removeEventListener('suya-character-message', handleCharacterMessage)
       window.removeEventListener('suya-bot-input', handleBotInput)
     }
-  }, [pulseMode, runCommand])
+  }, [handleBotInput, handleCharacterMessage, pulseMode, runCommand])
 
   React.useEffect(() => {
     const observer = new MutationObserver((mutations) => {
@@ -1236,6 +1225,13 @@ function mountCharacterUI() {
   try {
     const rootElement = document.createElement('div')
     rootElement.id = ROOT_ID
+    rootElement.setAttribute('data-suya-extension-root', 'true')
+    Object.assign(rootElement.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483647',
+      pointerEvents: 'none'
+    })
     document.documentElement.appendChild(rootElement)
     
     console.log('[Suya] Root element created and appended:', rootElement)
