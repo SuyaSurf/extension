@@ -22,6 +22,9 @@ class ExtensionBuilder {
       
       // Copy essential files
       await this.copyEssentialFiles();
+
+      // Apply environment-specific manifest configuration
+      await this.configureManifest();
       
       // Copy built UI files
       await this.copyUIFiles();
@@ -80,6 +83,34 @@ class ExtensionBuilder {
         console.log(`  ⚠️  ${file} not found, skipping`);
       }
     }
+  }
+
+  async configureManifest() {
+    console.log('🧩 Configuring manifest...');
+
+    const manifestPath = path.join(this.buildDir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const googleClientId = process.env.SUYASURF_GOOGLE_CLIENT_ID;
+
+    if (googleClientId) {
+      if (!/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/.test(googleClientId)) {
+        throw new Error('SUYASURF_GOOGLE_CLIENT_ID must be a Google OAuth client ID ending in .apps.googleusercontent.com');
+      }
+
+      manifest.oauth2 = {
+        client_id: googleClientId,
+        scopes: [
+          'https://www.googleapis.com/auth/gmail.readonly',
+          'https://www.googleapis.com/auth/calendar.events.readonly'
+        ]
+      };
+      console.log('  ✓ Google OAuth configured from SUYASURF_GOOGLE_CLIENT_ID');
+    } else {
+      delete manifest.oauth2;
+      console.log('  ⚠️  Google OAuth disabled; set SUYASURF_GOOGLE_CLIENT_ID for Gmail/Calendar notifications');
+    }
+
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
   }
 
   async copyUIFiles() {

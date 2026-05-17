@@ -25,8 +25,6 @@
   ],
   
   "host_permissions": [
-    "https://*/*",
-    "http://*/*",
     "*://*.google.com/*",
     "*://*.gmail.com/*",
     "*://*.outlook.com/*",
@@ -40,6 +38,11 @@
     "https://www.googleapis.com/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*"
+  ],
+
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
   ],
   
   "background": {
@@ -66,15 +69,6 @@
   
   "chrome_url_overrides": {
     "newtab": "newtab/newtab.html"
-  },
-  
-  "oauth2": {
-    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": [
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/calendar.events.readonly"
-    ]
   },
   
   "action": {

@@ -13,6 +13,7 @@ class NotificationAggregator {
     this.lastCalendarCheck = null;
     this.notifications = [];
     this.maxNotifications = 50;
+    this.missingOAuthWarningShown = false;
   }
 
   async init() {
@@ -238,6 +239,11 @@ class NotificationAggregator {
 
   async getGmailToken() {
     try {
+      if (!this.hasGoogleOAuthClient()) {
+        await this.warnMissingGoogleOAuth();
+        return null;
+      }
+
       const token = await chrome.identity.getAuthToken({
         interactive: false,
         scopes: ['https://www.googleapis.com/auth/gmail.readonly']
@@ -250,6 +256,11 @@ class NotificationAggregator {
 
   async getCalendarToken() {
     try {
+      if (!this.hasGoogleOAuthClient()) {
+        await this.warnMissingGoogleOAuth();
+        return null;
+      }
+
       const token = await chrome.identity.getAuthToken({
         interactive: false,
         scopes: ['https://www.googleapis.com/auth/calendar.events.readonly']
@@ -258,6 +269,34 @@ class NotificationAggregator {
     } catch (error) {
       return null;
     }
+  }
+
+  hasGoogleOAuthClient() {
+    const clientId = chrome.runtime.getManifest().oauth2?.client_id;
+    return Boolean(
+      clientId &&
+      clientId.endsWith('.apps.googleusercontent.com') &&
+      !clientId.startsWith('YOUR_')
+    );
+  }
+
+  async warnMissingGoogleOAuth() {
+    if (this.missingOAuthWarningShown) return;
+    this.missingOAuthWarningShown = true;
+
+    const notification = {
+      id: 'google-oauth-not-configured',
+      type: 'system',
+      title: 'Google integrations need OAuth setup',
+      message: 'Build with SUYASURF_GOOGLE_CLIENT_ID to enable Gmail and Calendar notifications.',
+      priority: 'normal',
+      timestamp: Date.now(),
+      read: false
+    };
+
+    this.addNotification(notification);
+    await this.saveToStorage();
+    console.warn('[Suya] Google OAuth is not configured. Set SUYASURF_GOOGLE_CLIENT_ID during the extension build.');
   }
 
   addNotification(notification) {
